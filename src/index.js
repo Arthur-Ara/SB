@@ -30,13 +30,18 @@ async function main() {
   await db.connect();
   await db.runMigrations('core', path.join(__dirname, 'core', 'migrations'));
 
+  // 1 bis. Admins globaux (/admin) : ajoutés aux propriétaires et aux comptes autorisés du panel web.
+  const { BotAdmins } = require('./core/botAdmins');
+  const botAdmins = new BotAdmins({ db, config, logger });
+  await botAdmins.load();
+
   // 2. Découverte des modules (leurs intents déterminent la configuration du client)
   const modules = new ModuleManager({ config, logger });
   modules.discover();
   const client = createClient({ intents: modules.collectIntents(), partials: modules.collectPartials() });
 
   // 3. Contexte partagé + gestionnaires dynamiques
-  const core = { config, db, client, logger, modules };
+  const core = { config, db, client, logger, modules, botAdmins };
   core.commands = new CommandHandler(core);
   core.events = new EventHandler(core);
   core.commands.loadFromDirectory('core', path.join(__dirname, 'bot', 'commands'), core);

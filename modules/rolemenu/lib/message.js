@@ -49,10 +49,15 @@ function buttonRows(guild, options) {
   return rows;
 }
 
-function selectRow(guild, menu, options) {
+/**
+ * Menu déroulant d'un RôleMenu. Publié : sélection vide pour tous. Personnel (`personal`, réponse éphémère) : les
+ * options dont le membre a déjà le rôle sont présélectionnées, pour qu'il n'ait qu'à cocher / décocher.
+ */
+function selectRow(guild, menu, options, { personal = false, ownedIds = [] } = {}) {
   const max = menu.mode === 'single' ? 1 : Math.min(options.length, Number(menu.max_selected) || options.length);
+  const owned = new Set(ownedIds.map(String).slice(0, Math.max(1, max)));
   const select = new StringSelectMenuBuilder()
-    .setCustomId(`rm:s:${menu.id}`)
+    .setCustomId(`rm:${personal ? 'p' : 's'}:${menu.id}`)
     .setPlaceholder((menu.placeholder || 'Choisis tes rôles…').slice(0, 150))
     .setMinValues(0)
     .setMaxValues(Math.max(1, max))
@@ -60,6 +65,7 @@ function selectRow(guild, menu, options) {
       options.map((option) => {
         const item = { label: optionName(guild, option).slice(0, 100), value: String(option.id) };
         if (option.description) item.description = option.description.slice(0, 100);
+        if (personal && owned.has(String(option.id))) item.default = true;
         const emoji = parseEmoji(option.emoji);
         if (emoji) item.emoji = emoji.button;
         return item;
@@ -184,6 +190,7 @@ async function refreshMenuMessage(client, service, menu) {
 }
 
 module.exports = {
+  selectRow,
   LIMITS,
   TYPE_LABEL,
   MODE_LABEL,

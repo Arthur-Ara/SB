@@ -4,6 +4,7 @@ const path = require('node:path');
 const express = require('express');
 const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const { HttpError, wrap, isSnowflake, avatarUrl, hexColor, imageUrl, textChannelId } = require('../../../src/web/helpers');
+const { describeChanges, withChanges, noteActivity } = require('../../../src/web/changes');
 const { guildAccess, memberOf } = require('../../permissions/lib/webAccess');
 const { STATUSES, RECRUITER_STATUSES, FINAL_STATUSES, isFinal, statusLabel } = require('../lib/statuses');
 const { isAdmin } = require('../lib/guard');
@@ -214,6 +215,7 @@ module.exports = function registerWeb(router, ctx) {
   }
 
   function logWeb(req, guild, text) {
+    noteActivity(req, text);
     return sendLog(ctx, guild, [`🌐 **${webUserOf(req).name}** (panel web) — ${text}`]);
   }
 
@@ -237,6 +239,7 @@ module.exports = function registerWeb(router, ctx) {
       const guild = await access.guild(req, 'manage-settings');
       const body = req.body ?? {};
       const patch = {};
+      const before = await candidatures.settings(guild.id);
       if ('logChannelId' in body) patch.log_channel_id = textChannelId(guild, body.logChannelId);
       if ('refusalReasonRequired' in body) patch.refusal_reason_required = body.refusalReasonRequired ? 1 : 0;
       if ('autoReplies' in body) {
@@ -249,7 +252,14 @@ module.exports = function registerWeb(router, ctx) {
         patch.auto_replies = replies;
       }
       await candidatures.updateSettings(guild.id, patch);
-      await logWeb(req, guild, 'réglages des candidatures modifiés');
+      // Réponses automatiques : une ligne par statut modifié plutôt qu'un bloc JSON.
+      const flat = (replies) => Object.fromEntries(RECRUITER_STATUSES.concat(['withdrawn']).map((key) => [`reply_${key}`, replies?.[key] ? `${replies[key].message}${replies[key].dm ? ' (+ MP)' : ''}` : null]));
+      const changes = describeChanges(
+        { log_channel_id: before.logChannelId, refusal_reason_required: before.refusalReasonRequired ? 1 : 0, ...('auto_replies' in patch ? flat(before.autoReplies) : {}) },
+        { ...patch, auto_replies: undefined, ...('auto_replies' in patch ? flat(patch.auto_replies) : {}) },
+        Object.fromEntries(Object.keys(STATUSES).map((key) => [`reply_${key}`, `Réponse automatique « ${STATUSES[key].label} »`])),
+      );
+      await logWeb(req, guild, withChanges('réglages des candidatures modifiés', changes));
       res.json(await stateJson(req, guild));
     }),
   );
@@ -287,7 +297,7 @@ module.exports = function registerWeb(router, ctx) {
       if ('image' in body) patch.image = imageUrl(body.image, 'Image');
       if ('thumbnail' in body) patch.thumbnail = imageUrl(body.thumbnail, 'Vignette');
       await candidatures.updatePanel(panel.id, patch);
-      await logWeb(req, guild, `panel de candidatures #${panel.id} modifié`);
+      await logWeb(req, guild, withChanges(`panel de candidatures #${panel.id} modifié`, describeChanges(panel, patch)));
       refreshPanel(ctx, panel.id).catch(() => {});
       res.json(await stateJson(req, guild));
     }),
@@ -382,7 +392,7 @@ module.exports = function registerWeb(router, ctx) {
       if ('openedImage' in body) patch.opened_image = imageUrl(body.openedImage, 'Image');
       if ('openedThumbnail' in body) patch.opened_thumbnail = imageUrl(body.openedThumbnail, 'Vignette');
       await candidatures.updateCategory(category.id, patch);
-      await logWeb(req, guild, `catégorie de candidature **${patch.label ?? category.label}** modifiée`);
+      await logWeb(req, guild, withChanges(`catégorie de candidature **${patch.label ?? category.label}** modifiée`, describeChanges(category, patch)));
       refreshPanel(ctx, category.panel_id).catch(() => {});
       res.json(await stateJson(req, guild));
     }),

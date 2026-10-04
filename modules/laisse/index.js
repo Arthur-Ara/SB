@@ -15,6 +15,13 @@ module.exports = {
   label: 'Laisse',
   emoji: '🔗',
   description: 'Un membre en laisse suit automatiquement son maître en vocal.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Un membre « en laisse » suit automatiquement son maître de salon vocal en salon vocal',
+    'Chaînes de laisses (A tient B qui tient C), boucles refusées',
+    'Limites par membre et globale, immunité, autorisations par les admins du module',
+    'Panel web : qui tient qui, réglages et admins',
+  ],
   defaultEnabled: false,
   intents: [GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
 

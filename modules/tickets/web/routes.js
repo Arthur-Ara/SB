@@ -5,6 +5,7 @@ const express = require('express');
 const { ChannelType } = require('discord.js');
 const ui = require('../../../src/bot/ui');
 const { HttpError, wrap, isSnowflake, avatarUrl, hexColor, imageUrl, textChannelId } = require('../../../src/web/helpers');
+const { describeChanges, withChanges, noteActivity } = require('../../../src/web/changes');
 const { guildAccess, memberOf } = require('../../permissions/lib/webAccess');
 const { claimBlock, isTicketAdmin, roleAccess } = require('../lib/guard');
 const { publishPanel, refreshPanelMessage, setClaim, closeTicket, reopenTicket, deleteTicket, grantAdminAccess, revokeAdminAccess, sendAsWebUser } = require('../lib/lifecycle');
@@ -51,7 +52,14 @@ module.exports = function registerWeb(router, ctx) {
   }
 
   /** Une ligne de journal par modification « finale » faite depuis le panel. */
+  /** Champs d'une catégorie de modmail (noms du panel) → colonnes en base, pour le détail des journaux. */
+  function modmailColumns(patch) {
+    const columns = { name: 'name', categoryId: 'category_id', staffRoleIds: 'staff_role_ids', welcomeMessage: 'welcome_message', autoCloseHours: 'auto_close_hours', panelOnly: 'panel_only' };
+    return Object.fromEntries(Object.entries(patch).map(([key, value]) => [columns[key] ?? key, typeof value === 'boolean' ? Number(value) : value]));
+  }
+
   function logWeb(req, guild, text) {
+    noteActivity(req, text);
     return logs.send(guild.id, ui.card({ description: `🌐 **${webUserOf(req).name}** (panel web) — ${text}`, timestamp: true }));
   }
 
@@ -499,7 +507,7 @@ module.exports = function registerWeb(router, ctx) {
       if ('autoCloseHours' in body) patch.autoCloseHours = hoursOrNull(body.autoCloseHours, 'Fermeture automatique');
       if ('panelOnly' in body) patch.panelOnly = body.panelOnly === true;
       await tickets.updateModmailCategory(category.id, patch);
-      await logWeb(req, guild, `catégorie de modmail modifiée : **${patch.name ?? category.name}**.`);
+      await logWeb(req, guild, withChanges(`catégorie de modmail modifiée : **${patch.name ?? category.name}**.`, describeChanges(category, modmailColumns(patch), { staff_role_ids: 'Rôles staff', welcome_message: 'Message d’accueil', auto_close_hours: 'Fermeture automatique (h)', panel_only: 'Panel uniquement' })));
       res.json(await stateJson(req, guild));
     }),
   );
@@ -736,7 +744,7 @@ module.exports = function registerWeb(router, ctx) {
       if ('scheduleTimezone' in body) patch.schedule_timezone = body.scheduleTimezone ? String(body.scheduleTimezone).slice(0, 64) : 'Europe/Paris';
       await tickets.updatePanel(panel.id, patch);
       await refreshPanelMessage(ctx, await tickets.getPanel(panel.id));
-      await logWeb(req, guild, `panel #${panel.id} modifié.`);
+      await logWeb(req, guild, withChanges(`panel #${panel.id} modifié.`, describeChanges(panel, patch)));
       res.json(await stateJson(req, guild));
     }),
   );
@@ -850,7 +858,7 @@ module.exports = function registerWeb(router, ctx) {
 
       await tickets.updateType(type.id, patch);
       await refreshPanelMessage(ctx, panel);
-      await logWeb(req, guild, `type modifié : **${patch.label ?? type.label}** (panel #${panel.id}).`);
+      await logWeb(req, guild, withChanges(`type modifié : **${patch.label ?? type.label}** (panel #${panel.id}).`, describeChanges(type, patch)));
       res.json(await stateJson(req, guild));
     }),
   );

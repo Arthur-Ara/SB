@@ -22,6 +22,14 @@ module.exports = {
   label: 'Permissions',
   emoji: '🛡️',
   description: 'Autorisations des commandes par serveur, par rôle ou par utilisateur.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Contrôle d’accès de chaque slash command : règles par utilisateur, par rôle, commande publique ou accès par défaut',
+    'Accès temporaires avec échéance, explication d’un refus avec /permission check',
+    'Modèles de règles réutilisables et copie des règles d’un rôle vers un autre',
+    'Droits du panel web par module et par rôle (/permission grant-panel)',
+    'Toujours actif : le propriétaire du serveur garde l’accès à /permission',
+  ],
   required: true, // le contrôle d'accès ne peut pas être désactivé sur un serveur
   intents: [],
 

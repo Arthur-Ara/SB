@@ -22,6 +22,14 @@ module.exports = {
   label: 'Modération',
   emoji: '🛡️',
   description: 'Sanctions, automod, verrouillages de salons, avertissements et historique de modération.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Sanctions : ban, tempban, kick, mute, mute vocal, avertissements, notes, shadow-ban',
+    'Identifiant et preuves pour chaque sanction, historique par membre, contestation',
+    'Verrouillage de salons ou du serveur, mode lent, nettoyage de messages, /purge d’un salon',
+    'Automod configurable et blacklist globale (tous les serveurs, propriétaires du bot)',
+    'Journal de modération détaillé et panel web (bannis, avertissements, salons verrouillés…)',
+  ],
   defaultEnabled: false,
   intents: [
     GatewayIntentBits.GuildMembers,

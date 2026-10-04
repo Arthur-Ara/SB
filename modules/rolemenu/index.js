@@ -20,6 +20,14 @@ module.exports = {
   label: 'RôleMenu',
   emoji: '🎭',
   description: 'Menus de rôles (réactions, boutons, menu déroulant) avec conditions d’accès.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Menus de rôles en réactions, boutons ou menu déroulant',
+    'Un seul rôle ou plusieurs (maximum facultatif), retrait autorisé ou non',
+    'Menu déroulant : les rôles déjà possédés sont présélectionnés dans la réponse pour les modifier facilement',
+    'Conditions d’accès cumulables : rôles, ancienneté, compte, booster',
+    'Configuration depuis Discord (/rolemenu) ou le panel web, garde-fous sur les rôles sensibles',
+  ],
   defaultEnabled: false,
   intents: [GatewayIntentBits.GuildMessageReactions],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User],

@@ -147,8 +147,13 @@ Conventions communes à respecter :
 ### Panel web : activité, notifications, connexion
 
 - **Activité** (`/activity`) : connexions et actions (requêtes qui modifient quelque chose) du panel, avec module,
-  serveur et résultat, conservées 90 jours, sans adresse IP. Les propriétaires du bot voient tous les comptes, les
-  autres comptes uniquement leurs propres actions.
+  serveur, résultat et **détail de ce qui a été modifié** (« champ : ancienne valeur → nouvelle valeur » quand le
+  module le fournit — Tickets, Support, Candidatures —, sinon les champs envoyés), conservées 90 jours, sans adresse
+  IP. Les propriétaires du bot voient tous les comptes, les autres comptes uniquement leurs propres actions. Les
+  journaux Discord de ces modules (salon de journal) reçoivent le même détail (`src/web/changes.js`).
+- **Fonctionnalités** (`/features`, page **publique** comme le changelog) : tous les modules avec leurs fonctionnalités
+  (champ `features` de chaque `index.js`) et leurs commandes, lues directement dans les définitions des slash
+  commands (sous-commandes et options) ; recherche par module, commande ou fonctionnalité.
 - **Notifications** (🔔) : tickets en attente d'une réponse du staff, conversations modmail ouvertes, messages bloqués
   par l'automod (24 h), nouveaux rapports hebdomadaires — seulement pour les serveurs et modules accessibles au compte.
   Le compteur repart de zéro à l'ouverture de la liste (mémorisé dans le navigateur).
@@ -169,6 +174,10 @@ n'apparaît pas tout de suite, relancez Discord (Ctrl+R).
   Un module désactivé ne reçoit plus les événements du serveur et ses commandes y sont refusées. Les propriétaires du bot
   (`BOT_OWNERS`, ou à défaut `AUTHORIZED_WEB_USERS`) disposent en plus d'un menu pour recharger à chaud les commandes et
   événements d'un module. `DISABLED_MODULES` désactive un module pour tout le bot au démarrage.
+- `/admin ajouter|retirer <utilisateur>` · `/admin liste` — **admins globaux du bot** : un admin global a les droits
+  d'un propriétaire sur **tout le bot**, tous les serveurs et tous les modules (pas seulement un serveur ou un module),
+  panel web compris (accès au dashboard sans être dans `AUTHORIZED_WEB_USERS`). Réservé aux propriétaires déclarés dans
+  le `.env` (`BOT_OWNERS`) ; un admin global ne peut pas en nommer d'autres. Enregistrés en base (`bot_admins`).
 - `/panel` — lien du dashboard (réponse visible uniquement par l'auteur, avec l'indication de son autorisation d'accès).
   L'adresse est déduite de `WEB_CALLBACK_URL`.
 - `/changelog [version] [apercu]` — publie dans le salon la liste des modifications d'une version (la dernière par
@@ -526,7 +535,10 @@ Configurable **depuis Discord avec le panneau interactif de `/rolemenu`** (une s
 sélecteurs de rôles et de salons, fenêtres de saisie) **ou depuis le panel web** (`/m/rolemenu/`) — mêmes validations
 et même journal.
 
-- **3 types** : réactions (emojis), boutons, menu déroulant.
+- **3 types** : réactions (emojis), boutons, menu déroulant. Menu déroulant : le menu publié est commun à tous et
+  s'affiche vide, ses choix **s'ajoutent** donc aux rôles déjà possédés (mode plusieurs rôles) ; la réponse (visible
+  du seul membre) contient un sélecteur **personnel où ses rôles actuels sont déjà cochés**, pour en retirer ou en
+  changer sans tout resélectionner.
 - **2 modes** : plusieurs rôles (maximum facultatif) ou **un seul rôle parmi la liste** ; retrait possible ou non.
 - **Conditions cumulables** (autant que voulu, **toutes requises**, sur un menu entier et/ou un seul rôle ; le membre
   refusé voit toutes celles qui lui manquent) : avoir tous / l'un de ces rôles, ne pas avoir tel rôle, ancienneté sur

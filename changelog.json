@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.6.0",
+    "date": "2026-10-04",
+    "title": "Admins globaux, fonctionnalités et journaux détaillés",
+    "changes": [
+      { "type": "feature", "module": "core", "text": "/admin ajouter, retirer et liste : un admin global a les droits de propriétaire sur tout le bot, tous les serveurs et tous les modules, panel web compris. Réservé aux propriétaires déclarés dans BOT_OWNERS." },
+      { "type": "feature", "module": "web", "text": "Nouvelle page publique « Fonctionnalités » : tous les modules, leurs fonctionnalités et leurs commandes (sous-commandes et options), avec recherche." },
+      { "type": "change", "module": "web", "text": "Journal d'activité du panel : nouvelle colonne « Détail » qui indique ce qui a été modifié (ancienne → nouvelle valeur quand le module le fournit, sinon les champs envoyés)." },
+      { "type": "change", "module": "tickets", "text": "Journal : la modification d'un panel, d'un type ou d'une catégorie de modmail depuis le panel web liste les champs changés avec leur ancienne et leur nouvelle valeur." },
+      { "type": "change", "module": "support", "text": "Journal : la modification d'un panel, d'une catégorie ou d'une réponse depuis le panel web liste les champs changés avec leur ancienne et leur nouvelle valeur." },
+      { "type": "change", "module": "candidature", "text": "Journal : les modifications des réglages, des panels et des catégories détaillent les champs changés." },
+      { "type": "change", "module": "rolemenu", "text": "Menus déroulants : les choix s'ajoutent aux rôles déjà possédés, et la réponse propose un sélecteur où les rôles du membre sont déjà cochés pour les modifier facilement." }
+    ]
+  },
+  {
     "version": "1.5.1",
     "date": "2026-10-04",
     "title": "Candidatures : panels et acceptation",

@@ -1,0 +1,47 @@
+/* Module Server Manager — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+.card-sub {
+  padding: 12px 14px 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.warnings {
+  margin: 0;
+  padding: 0 14px 0 32px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.error-text {
+  margin: 8px 14px 0;
+  color: var(--critical);
+  font-weight: 600;
+}
+
+/* Suivi d'une tâche longue (rollback, restauration). */
+.job-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+.job-card h3 {
+  font-size: 15px;
+}
+.job-card .filters {
+  padding: 0;
+}
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}

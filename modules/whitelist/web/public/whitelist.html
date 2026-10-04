@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Whitelist Vocal · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/whitelist/assets/whitelist.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/whitelist/assets/whitelist.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🚪 Whitelist Vocal</h1>
+        <span class="status-line">Les actions faites ici sont journalisées sur Discord.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Whitelist Vocal activé. Active-le avec <code>/modules</code> sur Discord
+        (réservé aux administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <section class="tiles" id="tiles" aria-label="Indicateurs"></section>
+
+        <h2 class="section-title">Réglages</h2>
+        <section class="card" id="settings-card"></section>
+
+        <h2 class="section-title">Configurer un salon</h2>
+        <section class="card" id="channel-picker"></section>
+        <section class="card" id="channel-editor" hidden></section>
+
+        <h2 class="section-title">Tous les salons vocaux</h2>
+        <section class="card" id="channels-card"></section>
+
+        <h2 class="section-title">Admins du module</h2>
+        <section class="card" id="admins-card"></section>
+      </div>
+    </main>
+  </body>
+</html>

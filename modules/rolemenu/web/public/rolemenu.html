@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RôleMenu · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/rolemenu/assets/rolemenu.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/rolemenu/assets/rolemenu.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🎭 RôleMenu</h1>
+        <span class="status-line">Menus de rôles (réactions, boutons, menu déroulant), conditions d’accès.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module RôleMenu activé. Active-le avec <code>/modules</code> sur Discord (réservé aux
+        administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <h2 class="section-title">Réglages</h2>
+        <section class="card" id="settings-card"></section>
+
+
+        <h2 class="section-title">Menus de rôles</h2>
+        <div id="menus-list"></div>
+        <div class="card">
+          <div class="filters" id="new-menu"></div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

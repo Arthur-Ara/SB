@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fiche membre · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/stats/assets/stats.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/vendor/chart.js" defer></script>
+    <script src="/m/stats/assets/common.js" defer></script>
+    <script src="/m/stats/assets/member.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>Investigation — fiche membre</h1>
+        <a id="back-link" href="/m/stats/">← Retour au dashboard</a>
+      </div>
+
+      <div class="card toolbar">
+        <form id="filters" class="filters" autocomplete="off">
+          <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+          <div id="f-period" class="period-host"></div>
+          <button type="submit" class="btn btn-primary">Actualiser</button>
+        </form>
+        <form id="member-search" class="member-search" autocomplete="off">
+          <label class="field">
+            <span>ID Discord du membre</span>
+            <input id="f-member" inputmode="numeric" placeholder="ex. 123456789012345678" />
+          </label>
+          <button type="submit" class="btn">Rechercher</button>
+        </form>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="hint" class="card empty">
+        Saisissez l’ID Discord d’un membre (clic droit sur le profil → « Copier l’identifiant », mode développeur requis)
+        pour afficher toutes ses données.
+      </div>
+
+      <div id="profile" hidden>
+        <section class="card profile-card" id="profile-card"></section>
+
+        <h2 class="section-title">Sur la période</h2>
+        <section class="tiles" id="tiles-period"></section>
+
+        <h2 class="section-title">Depuis le début du suivi</h2>
+        <section class="tiles" id="tiles-all"></section>
+
+        <h2 class="section-title">Activité</h2>
+        <section class="panels" id="panels"></section>
+
+        <h2 class="section-title">Historique</h2>
+        <section class="boards" id="history"></section>
+      </div>
+    </main>
+  </body>
+</html>

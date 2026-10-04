@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Statistiques · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/stats/assets/stats.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/vendor/chart.js" defer></script>
+    <script src="/m/stats/assets/common.js" defer></script>
+    <script src="/m/stats/assets/dashboard.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1 id="page-title">Statistiques</h1>
+        <span class="status-line" id="status-line"></span>
+      </div>
+
+      <nav class="tabs subnav" aria-label="Pages du module Statistiques">
+        <a class="tab-btn active" href="/m/stats/" aria-current="page">📊 Tableau de bord</a>
+        <a class="tab-btn" href="/m/stats/rapports" id="link-reports">🗂️ Rapports</a>
+      </nav>
+
+      <div class="card toolbar">
+        <form id="filters" class="filters" autocomplete="off">
+          <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+          <div id="f-period" class="period-host"></div>
+          <label class="check"><input type="checkbox" id="f-compare" checked /> Comparer à la période précédente</label>
+          <button type="submit" class="btn btn-primary">Actualiser</button>
+        </form>
+        <form id="member-search" class="member-search" autocomplete="off">
+          <label class="field">
+            <span>Rechercher un membre (ID Discord)</span>
+            <input id="f-member" inputmode="numeric" placeholder="ex. 123456789012345678" />
+          </label>
+          <button type="submit" class="btn">Rechercher</button>
+        </form>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur suivi pour le moment. Invitez le bot sur un serveur : la collecte et la rétroactivité démarrent
+        automatiquement.
+      </div>
+
+      <div id="content">
+        <h2 class="section-title">Sur la période</h2>
+        <section class="tiles" id="tiles-period" aria-label="Indicateurs de la période"></section>
+
+        <h2 class="section-title">État actuel du serveur</h2>
+        <section class="tiles" id="tiles-now" aria-label="État actuel"></section>
+
+        <h2 class="section-title">Graphiques</h2>
+        <section class="panels" id="panels"></section>
+
+        <h2 class="section-title">Classements</h2>
+        <section class="boards" id="boards"></section>
+
+        <div id="invites-section" hidden>
+          <h2 class="section-title">Invitations</h2>
+          <section class="tiles" id="tiles-invites" aria-label="Origine des arrivées"></section>
+          <section class="boards" id="boards-invites"></section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

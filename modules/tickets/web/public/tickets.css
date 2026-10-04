@@ -1,0 +1,171 @@
+/* Module Tickets — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+/* Sous-onglets (ex. Notations) : plus discrets que les onglets principaux. */
+.subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.subtab-btn {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.subtab-btn:hover {
+  color: var(--text-primary);
+}
+.subtab-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.filters .field input,
+.filters .field select {
+  min-width: 180px;
+}
+
+/* Étiquettes (puces colorées) */
+.tag-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tag-chip button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.7;
+}
+.tag-chip button:hover {
+  opacity: 1;
+}
+/* Liste des étiquettes, dans l'ordre de priorité (réglages). */
+.tag-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 14px 6px;
+}
+.tag-row {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.tag-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+}
+.tag-rank {
+  min-width: 26px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.tag-effects {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+}
+.tag-editor {
+  border-top: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+select.tag-add {
+  height: 24px;
+  padding: 0 6px;
+  font-size: 12px;
+}
+
+/* Questions du formulaire d'ouverture */
+.question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.question-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+  padding: 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
+.question-row input[type="number"] {
+  width: 90px;
+}
+.question-index {
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--badge-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.snippet-preview {
+  display: inline-block;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 640px) {
+  .filters .field input,
+  .filters .field select {
+    min-width: 0;
+  }
+}
+
+/* Onglet « Tickets ouverts » : un bloc par catégorie (type de ticket), même vide. */
+.open-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.open-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 14px 14px 10px;
+}
+.open-block-head h3 {
+  font-size: 15px;
+  margin-right: 4px;
+}
+.open-block .empty {
+  padding: 14px 14px 18px;
+}

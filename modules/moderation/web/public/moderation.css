@@ -1,0 +1,106 @@
+/* Module Modération — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+.hist-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  padding: 14px 14px 0;
+}
+.proof-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+}
+
+.reason-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Automod : rôles et salons exemptés côte à côte, listes de mots en puces. */
+.automod-exempt {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  padding: 0 14px;
+}
+.automod-exempt h3 {
+  font-size: 13px;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+.word-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 14px 14px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.word-list .empty {
+  width: 100%;
+}
+.word-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 4px 2px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.word-chip.allowed {
+  border-color: var(--good);
+}
+.word-chip button {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0 4px;
+  height: auto;
+}
+.word-chip button:hover {
+  color: var(--critical);
+}
+
+/* Notes internes : une carte par note, auteur et date en tête. */
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 14px 14px;
+}
+.note-item {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+}
+.note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.note-head .btn {
+  margin-left: auto;
+}
+.note-content {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .reason-text {
+    max-width: 160px;
+  }
+}

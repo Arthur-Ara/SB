@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Laisse · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/laisse/assets/leash.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/laisse/assets/leash.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🔗 Module Laisse</h1>
+        <span class="status-line" id="status-line">Les actions faites ici sont journalisées sur Discord.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Laisse activé. Active-le avec <code>/modules</code> sur Discord (réservé aux
+        administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <section class="tiles" id="tiles" aria-label="Indicateurs"></section>
+
+        <h2 class="section-title">Réglages</h2>
+        <section class="card" id="settings-card"></section>
+
+        <h2 class="section-title">Mettre un membre en laisse</h2>
+        <section class="card" id="add-link-card"></section>
+
+        <h2 class="section-title">Laisses actives</h2>
+        <section class="card" id="links-card"></section>
+
+        <h2 class="section-title">Autorisés à utiliser le mode laisse</h2>
+        <section class="card" id="allowed-card"></section>
+
+        <h2 class="section-title">Immunisés</h2>
+        <section class="card" id="immune-card"></section>
+
+        <h2 class="section-title">God mode</h2>
+        <section class="card" id="godmode-card"></section>
+
+        <h2 class="section-title">Admins du module</h2>
+        <section class="card" id="admin-card"></section>
+
+        <section class="card danger-zone">
+          <h2>Zone dangereuse</h2>
+          <p class="muted">Vide toutes les laisses actives de ce serveur (les statuts individuels sont conservés).</p>
+          <button type="button" id="clear-all" class="btn btn-danger">Vider toutes les laisses</button>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>

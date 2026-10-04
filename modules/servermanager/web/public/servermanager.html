@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Server Manager · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/servermanager/assets/servermanager.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/servermanager/assets/servermanager.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🗂️ Server Manager</h1>
+        <span class="status-line">Journal des modifications, rollbacks et sauvegardes. Tes droits Discord sont vérifiés à chaque opération.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+        <button type="button" class="btn" id="f-refresh">🔄 Actualiser</button>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Server Manager activé. Active-le avec <code>/modules</code> sur Discord, puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <nav class="tabs" id="tabs" role="tablist" aria-label="Sections du Server Manager">
+          <button type="button" class="tab-btn" data-tab="rollback" role="tab">⏪ Rollback</button>
+          <button type="button" class="tab-btn" data-tab="journal" role="tab">📜 Journal</button>
+          <button type="button" class="tab-btn" data-tab="history" role="tab">🗃️ Historique</button>
+          <button type="button" class="tab-btn" data-tab="backups" role="tab">💾 Sauvegardes</button>
+          <button type="button" class="tab-btn" data-tab="settings" role="tab">⚙️ Réglages</button>
+        </nav>
+
+        <div class="tab-panel" data-tab="rollback">
+          <section class="tiles" id="tiles"></section>
+          <h2 class="section-title">Préparer un rollback</h2>
+          <section class="card" id="rollback-form"></section>
+          <div id="rollback-preview"></div>
+        </div>
+
+        <div class="tab-panel" data-tab="journal" hidden>
+          <h2 class="section-title">Modifications enregistrées</h2>
+          <section class="card" id="journal-card"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="history" hidden>
+          <h2 class="section-title">Rollbacks exécutés</h2>
+          <section class="card" id="history-card"></section>
+          <div id="batch-detail"></div>
+        </div>
+
+        <div class="tab-panel" data-tab="backups" hidden>
+          <h2 class="section-title">Sauvegardes</h2>
+          <section class="card" id="backups-card"></section>
+          <div id="restore-preview"></div>
+        </div>
+
+        <div class="tab-panel" data-tab="settings" hidden>
+          <h2 class="section-title">Réglages</h2>
+          <section class="card" id="settings-card"></section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rapports · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/stats/assets/stats.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/stats/assets/reports.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>Statistiques — Rapports</h1>
+        <span class="status-line">Rapports hebdomadaires et réglages du module pour ce serveur.</span>
+      </div>
+
+      <nav class="tabs subnav" aria-label="Pages du module Statistiques">
+        <a class="tab-btn" href="/m/stats/" id="link-dashboard">📊 Tableau de bord</a>
+        <a class="tab-btn active" href="/m/stats/rapports" aria-current="page">🗂️ Rapports</a>
+      </nav>
+
+      <div class="card toolbar">
+        <div class="filters">
+          <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+        </div>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>Aucun serveur accessible avec le module Statistiques activé.</div>
+
+      <div id="content" hidden>
+        <h2 class="section-title">Réglages</h2>
+        <section class="card" id="config-card"></section>
+
+        <h2 class="section-title">Rapports</h2>
+        <section class="card" id="reports-card"></section>
+
+        <div id="report-view"></div>
+      </div>
+    </main>
+  </body>
+</html>

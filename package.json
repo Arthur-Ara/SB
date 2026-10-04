@@ -1,0 +1,26 @@
+{
+  "name": "sciensbot",
+  "version": "1.4.1",
+  "private": true,
+  "description": "Bot Discord modulaire (slash commands) avec dashboard web centralisé — Discord.js, MySQL, Express.",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "check": "node scripts/check-syntax.js",
+    "test": "node scripts/run-tests.js"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.1.0",
+    "@fontsource-variable/jetbrains-mono": "^5.1.0",
+    "chart.js": "^4.4.4",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "express-session": "^1.18.1",
+    "helmet": "^8.0.0",
+    "mysql2": "^3.11.3"
+  }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Support automatique · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/support/assets/support.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/support/assets/support.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>❓ Support automatique</h1>
+        <span class="status-line">FAQ interactive : catégories, réponses, et ticket si besoin.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Support automatique activé. Active-le avec <code>/modules</code> sur Discord
+        (réservé aux administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <h2 class="section-title">Réglages</h2>
+        <section class="card" id="settings-card"></section>
+
+        <div id="tickets-warning" class="card" hidden></div>
+        <h2 class="section-title">Panels</h2>
+        <div id="panels-list"></div>
+        <div class="card">
+          <div class="filters"><button type="button" class="btn btn-primary" id="add-panel">+ Nouveau panel</button></div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

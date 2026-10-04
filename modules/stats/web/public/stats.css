@@ -1,0 +1,337 @@
+/* Module Statistiques — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+/* Ici les filtres vivent dans la barre d'outils (déjà espacée) : pas de marge intérieure propre. */
+.filters,
+.member-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+.filters .field select {
+  min-width: 150px;
+}
+.filters .field input {
+  min-width: 0;
+}
+
+/* Sélecteur de période : ses champs s'insèrent dans la ligne de filtres. */
+.period-host,
+.period-fields {
+  display: contents;
+}
+.period-fields .field[hidden] {
+  display: none !important;
+}
+
+/* Période propre à un graphique */
+.period-button.is-override {
+  background: var(--accent-soft);
+  color: var(--text-primary);
+}
+.panel-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 12px;
+  margin: 10px 0 4px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  animation: rise 0.2s ease both;
+}
+.panel-period .field select,
+.panel-period .field input {
+  height: 30px;
+  font-size: 13px;
+}
+.panel-period-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.panel.is-loading .panel-body {
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.member-search {
+  margin-left: auto;
+}
+.member-search input {
+  width: 220px;
+}
+
+main.is-loading .panel,
+main.is-loading .tile,
+main.is-loading .board,
+main.is-loading .profile-card {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
+}
+
+/* ── Panneaux de graphiques ───────────────────────────────────────────────── */
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr));
+  gap: 12px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 14px 16px 12px;
+  animation: rise 0.35s ease both;
+}
+.panel:hover,
+.board:hover {
+  border-color: var(--border-strong);
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.panel-head h2 {
+  font-size: 15px;
+}
+.panel-sub {
+  margin: 2px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.panel-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+.panel-tools select {
+  height: 28px;
+  font-size: 12px;
+  max-width: 220px;
+}
+
+.panel-summary {
+  margin: 6px 0 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  min-height: 18px;
+}
+.panel-summary strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.panel-body {
+  position: relative;
+  height: 240px;
+}
+
+/* Classement des rôles les plus mentionnés : pleine largeur, graphique + tableau cliquable */
+.panel-wide {
+  grid-column: 1 / -1;
+}
+.panel-wide .panel-body {
+  height: 320px;
+}
+.rank-table tr.is-off {
+  opacity: 0.4;
+}
+.rank-table tbody tr {
+  cursor: pointer;
+}
+.rank-line {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+
+.panel-table {
+  max-height: 260px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Classements ──────────────────────────────────────────────────────────── */
+.boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr));
+  gap: 12px;
+}
+.board {
+  padding: 14px 4px 4px;
+  min-width: 0;
+  animation: rise 0.35s ease both;
+}
+.board h2 {
+  padding: 0 10px 8px;
+  font-size: 14px;
+}
+.rank {
+  width: 28px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.channel-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 8px;
+}
+.board-head h2 {
+  padding: 0;
+}
+
+/* Évolution par rapport à la période précédente (tuiles). */
+.tile-delta {
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.tile-delta.up {
+  color: var(--good);
+}
+.tile-delta.down {
+  color: var(--critical);
+}
+.tile-delta.flat {
+  color: var(--text-muted);
+}
+
+/* Sous-navigation du module (Tableau de bord / Rapports). */
+.subnav {
+  margin-bottom: 12px;
+}
+.subnav a.tab-btn {
+  text-decoration: none;
+}
+
+/* Page Rapports : formulaires dans des cartes (les .filters du module n'ont pas de marge propre). */
+.stats-form {
+  padding: 14px;
+}
+.stats-form + .stats-form {
+  padding-top: 0;
+}
+.report-view .tiles {
+  margin: 0 14px 12px;
+}
+.report-view h3 {
+  padding: 0 14px 6px;
+  font-size: 14px;
+}
+.report-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 12px;
+  padding: 0 14px 14px;
+}
+.report-lists ol {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.8;
+}
+
+/* ── Fiche membre ─────────────────────────────────────────────────────────── */
+.profile-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.profile-card img {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  flex: none;
+}
+.profile-names {
+  min-width: 0;
+  flex: 1;
+}
+.profile-names h1 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+.profile-names .muted {
+  margin-top: 2px;
+}
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 10px 10px;
+}
+
+.message-content {
+  max-width: 480px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.change-arrow {
+  color: var(--text-secondary);
+  padding: 0 4px;
+}
+
+@media (max-width: 640px) {
+  .member-search {
+    margin-left: 0;
+    width: 100%;
+  }
+  .member-search .field {
+    flex: 1;
+  }
+  .member-search input {
+    width: 100%;
+  }
+  .filters .field {
+    flex: 1 1 140px;
+  }
+  .filters .field select {
+    min-width: 0;
+    width: 100%;
+  }
+  .panel-body {
+    height: 200px;
+  }
+}

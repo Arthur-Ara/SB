@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Modération · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/moderation/assets/moderation.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/moderation/assets/moderation.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🛡️ Modération</h1>
+        <span class="status-line">Les actions faites ici sont journalisées sur Discord.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+        <button type="button" class="btn" id="f-refresh">🔄 Actualiser</button>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Modération activé. Active-le avec <code>/modules</code> sur Discord (réservé aux
+        administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <nav class="tabs" id="tabs" role="tablist" aria-label="Catégories de modération"></nav>
+
+        <div class="tab-panel" data-tab="general">
+          <section class="tiles" id="tiles" aria-label="Indicateurs"></section>
+          <h2 class="section-title">Réglages</h2>
+          <section class="card" id="settings-card"></section>
+          <h2 class="section-title">Sanctions automatiques au cumul d’avertissements</h2>
+          <section class="card" id="warn-rules-card"></section>
+          <h2 class="section-title">Contestations</h2>
+          <section class="card" id="appeal-card"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="automod" hidden>
+          <h2 class="section-title">Réglages de l’automod</h2>
+          <section class="card" id="automod-settings-card"></section>
+          <h2 class="section-title">Mots interdits</h2>
+          <section class="card" id="automod-words-card"></section>
+          <h2 class="section-title">Tester un message</h2>
+          <section class="card" id="automod-test-card"></section>
+          <h2 class="section-title">Messages bloqués</h2>
+          <section class="card" id="automod-hits-card"></section>
+          <h2 class="section-title">Mots autorisés (faux positifs confirmés)</h2>
+          <section class="card" id="automod-allow-card"></section>
+          <h2 class="section-title">Historique de l’automod</h2>
+          <section class="card" id="hist-automod"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="ban" hidden>
+          <h2 class="section-title">Bannis actuellement</h2>
+          <section class="card" id="ban-form-card"></section>
+          <section class="card" id="bans-card"></section>
+          <h2 class="section-title">Historique des bannissements</h2>
+          <section class="card" id="hist-ban"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="kick" hidden>
+          <h2 class="section-title">Historique des expulsions</h2>
+          <section class="card" id="hist-kick"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="warn" hidden>
+          <h2 class="section-title">Avertissements actifs</h2>
+          <section class="card" id="warn-form-card"></section>
+          <section class="card" id="warns-card"></section>
+          <h2 class="section-title">Historique des avertissements</h2>
+          <section class="card" id="hist-warn"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="mute" hidden>
+          <h2 class="section-title">Historique des exclusions temporaires</h2>
+          <section class="card" id="hist-mute"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="vocmute" hidden>
+          <h2 class="section-title">Mutes vocaux temporaires actifs</h2>
+          <section class="card" id="tempvocmutes-card"></section>
+          <h2 class="section-title">Historique des mutes vocaux</h2>
+          <section class="card" id="hist-vocmute"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="shadowban" hidden>
+          <h2 class="section-title">Shadow-bans actifs</h2>
+          <section class="card" id="shadowban-form-card"></section>
+          <section class="card" id="shadowbans-card"></section>
+          <h2 class="section-title">Historique des shadow-bans</h2>
+          <section class="card" id="hist-shadowban"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="channels" hidden>
+          <h2 class="section-title">Salons verrouillés</h2>
+          <section class="card" id="lock-form-card"></section>
+          <section class="card" id="locks-card"></section>
+          <h2 class="section-title">Historique des actions sur les salons</h2>
+          <section class="card" id="hist-channels"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="blacklist" hidden>
+          <h2 class="section-title">Historique de la blacklist</h2>
+          <section class="card" id="hist-blacklist"></section>
+        </div>
+
+        <div class="tab-panel" data-tab="player" hidden>
+          <h2 class="section-title">Historique d’un joueur</h2>
+          <section class="card" id="player-form-card"></section>
+          <h2 class="section-title">Notes internes</h2>
+          <section class="card" id="notes-card"></section>
+          <h2 class="section-title">Sanctions et actions</h2>
+          <section class="card" id="hist-player"></section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

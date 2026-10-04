@@ -1,0 +1,183 @@
+[
+  {
+    "version": "1.4.1",
+    "date": "2026-10-04",
+    "title": "Correctifs du panel",
+    "changes": [
+      { "type": "fix", "module": "web", "text": "Espacements corrigés dans les formulaires du panel : les champs, titres et aperçus ne sont plus collés les uns aux autres ni au bord des cartes (éditeurs d'embed Support et Tickets, panels repliables, plage horaire, éditeur de salon Whitelist), et deux cartes qui se suivent ne se touchent plus." },
+      { "type": "change", "module": "tickets", "text": "Onglet « Tickets ouverts » : un bloc par catégorie (type de ticket), affiché même vide, avec le nombre de tickets à répondre et à prendre en charge." },
+      { "type": "fix", "module": "tickets", "text": "Sécurité : sur le panel, un membre du staff ne voit plus que les tickets qu'il verrait sur Discord (types dont il a un rôle, tickets qu'il a ouverts, pris en charge ou auxquels il a été ajouté) et les fils modmail de ses catégories — liste, historique, transcripts live, pièces jointes, actions et notifications. Les admins voient toujours tout." }
+    ]
+  },
+  {
+    "version": "1.4.0",
+    "date": "2026-10-04",
+    "title": "Panel Update",
+    "changes": [
+      { "type": "style", "module": "web", "text": "Refonte du style du panel : moderne, sombre, bleu & blanc et plus doux (fond bleu nuit à halos, cartes translucides aux coins arrondis, bouton principal et onglet actif en dégradé bleu, tableaux et badges adoucis, barres de défilement fines). Le thème clair suit la même palette." },
+      { "type": "style", "module": "stats", "text": "Graphiques aux couleurs du nouveau thème (série principale en bleu)." },
+      { "type": "change", "module": "web", "text": "Changelog : le sélecteur de versions va de la plus ancienne à la plus récente, regroupé par version (v1.0, puis ses correctifs v1.0.1, v1.0.2 en retrait, puis v1.1…)." },
+      { "type": "change", "module": "tickets", "text": "/ticket list et /ticket autolist : la section « En attente de prise en charge » n'apparaît que pour les types où la prise en charge est obligatoire ; tous les autres tickets sont dans « Tickets ouverts »." },
+      { "type": "feature", "module": "tickets", "text": "Listes de tickets (Discord et panel) : chaque ticket indique qui doit répondre — 💬 le staff (le membre a écrit en dernier) ou 🕓 le membre (le staff a répondu)." },
+      { "type": "feature", "module": "tickets", "text": "Les listes /ticket autolist sont recalculées toutes les 5 minutes (TICKETS_AUTOLIST_REFRESH_MINUTES) et la table des tickets ouverts du panel toutes les minutes, sans recharger la page." },
+      { "type": "fix", "module": "tickets", "text": "Listes de tickets longues : chaque section est raccourcie proprement (« … et N autre(s) ») au lieu d'être coupée par la limite de Discord." }
+    ]
+  },
+  {
+    "version": "1.3.4",
+    "date": "2026-10-04",
+    "title": "Fix & QoL",
+    "changes": [
+      { "type": "fix", "module": "web", "text": "Changelog : plus de « null » affiché à côté du filtre de module." },
+      { "type": "feature", "module": "web", "text": "Changelog : choix de la version à afficher (sélecteur, lien partageable ?version=…)." },
+      { "type": "style", "module": "web", "text": "Changelog : les modules concernés s'affichent sous le titre de chaque version (cliquables pour filtrer), et dans /changelog sur Discord." },
+      { "type": "fix", "module": "tickets", "text": "Transcript : les messages consécutifs d'un même auteur n'apparaissent plus en double." },
+      { "type": "feature", "module": "permissions", "text": "Joker « module.* » (ex. moderation.*) : une règle donne ou retire toutes les commandes d'un module, futures comprises, sans devoir rendre le membre admin du module." },
+      { "type": "change", "module": "permissions", "text": "/permission grant et revoke visent un seul rôle à la fois (toujours plusieurs commandes possibles)." },
+      { "type": "style", "module": "permissions", "text": "Panel : les commandes et les droits du panel déjà accordés au rôle (ou à l'utilisateur) ne sont plus proposés dans les listes ; « Retirer la règle » ne propose que les règles existantes." }
+    ]
+  },
+  {
+    "version": "1.3.3",
+    "date": "2026-10-04",
+    "title": "Correctif : transcript live des tickets",
+    "changes": [
+      { "type": "fix", "module": "tickets", "text": "Transcript live : plus de « null » affichés dans l'en-tête et la ligne des délais." },
+      { "type": "fix", "module": "tickets", "text": "Transcript : les champs des embeds (ex. « Réponses au formulaire ») s'affichent enfin." },
+      { "type": "feature", "module": "tickets", "text": "Transcript live : boutons « Prendre en charge » / « Relâcher » et « Fermer le ticket » (droit « gérer les tickets » du panel)." },
+      { "type": "change", "module": "tickets", "text": "Avec « Obliger à prendre en charge pour répondre », seul le membre du staff qui a pris le ticket peut y répondre (Discord, /ticket reponse et panel) ; pour reprendre la main, il faut d'abord le relâcher." },
+      { "type": "fix", "module": "web", "text": "Barre du haut des pages publiques : plus de « null » affiché pour un visiteur non connecté ; idem sous l'historique des tickets." }
+    ]
+  },
+  {
+    "version": "1.3.2",
+    "date": "2026-10-04",
+    "title": "Correctif : transfert des tickets étiquetés",
+    "changes": [
+      { "type": "fix", "module": "tickets", "text": "Le transfert d'un ticket restait bloqué sans erreur après la pose d'une étiquette qui déplace le salon : le déplacement attendait la fin de la limite de renommage de Discord (2 par 10 minutes)." },
+      { "type": "fix", "module": "tickets", "text": "Renommages des salons regroupés : seul le dernier nom voulu ({préfixe}-{format du type}) est appliqué, sans file d'attente de renommages intermédiaires." },
+      { "type": "change", "module": "tickets", "text": "La confirmation du transfert précise que le nouveau nom du salon peut mettre jusqu'à 10 minutes à apparaître." }
+    ]
+  },
+  {
+    "version": "1.3.1",
+    "date": "2026-10-04",
+    "title": "Correctif et petite mise à jour de la 1.3",
+    "changes": [
+      { "type": "feature", "module": "tickets", "text": "Transfert d'un ticket : choix de republier (ou non) le message d'accueil du nouveau type." },
+      { "type": "feature", "module": "tickets", "text": "Nouvelle option par type « Obliger à prendre en charge pour répondre », indépendante de la notation (les types qui avaient la notation la gardent activée)." },
+      { "type": "change", "module": "tickets", "text": "/ticket reponse publie désormais la réponse prédéfinie dans un simple embed du bot." },
+      { "type": "feature", "module": "tickets", "text": "Étiquettes : ordre de priorité réglable (▲▼), et à la pose : déplacement du ticket dans une autre catégorie, mention de rôles, préfixe ajouté au nom du salon." },
+      { "type": "feature", "module": "tickets", "text": "/ticket list : tickets ouverts triés par priorité des étiquettes ; la liste des tickets ouverts du panel suit le même ordre." },
+      { "type": "feature", "module": "tickets", "text": "/ticket autolist [catégorie] : liste publique des tickets en attente de prise en charge et pris en charge, mise à jour automatiquement à chaque ouverture, prise en charge, fermeture, transfert ou étiquette." },
+      { "type": "feature", "module": "tickets", "text": "Modmail : option « traiter uniquement depuis le panel » par catégorie (aucun salon Discord) ; un fil se ferme aussi depuis sa page transcript." },
+      { "type": "fix", "module": "servermanager", "text": "Les salons de tickets et de modmail ne sont plus journalisés, ni proposés par les rollbacks, ni sauvegardés ou recréés par une restauration." },
+      { "type": "style", "module": "web", "text": "Sur téléphone, la barre du haut regroupe les modules dans un menu ☰ au lieu d'une bande à faire défiler." }
+    ]
+  },
+  {
+    "version": "1.3.0",
+    "date": "2026-10-03",
+    "title": "Grande mise à jour des modules",
+    "changes": [
+      { "type": "feature", "module": "tickets", "text": "Formulaire à l'ouverture (jusqu'à 5 questions), activable par type de ticket ; les réponses s'affichent dans le ticket et son transcript." },
+      { "type": "feature", "module": "tickets", "text": "Réponses prédéfinies (/ticket reponse et zone de réponse du panel), avec {user}, {staff}, {ticket}, {number} et {type}." },
+      { "type": "feature", "module": "tickets", "text": "Historique : recherche (texte, ouvreur, staff, type, étiquette, dates), pagination et « pris en charge par »." },
+      { "type": "feature", "module": "tickets", "text": "Étiquettes de tickets (priorité, catégorie…) configurables, liste noire des tickets, suppression automatique des tickets fermés (réglable par type)." },
+      { "type": "feature", "module": "tickets", "text": "Transfert d'un ticket vers un autre type, réservé aux modérateurs du ticket." },
+      { "type": "feature", "module": "tickets", "text": "Modmail : réponse depuis le panel, réponse anonyme (/modmail anonyme), message d'accueil et fermeture automatique par catégorie." },
+      { "type": "feature", "module": "tickets", "text": "Modmail : préfixe de grade affiché au membre (préfixe du plus haut rôle du staff qui en a un)." },
+
+      { "type": "feature", "module": "moderation", "text": "Sanctions automatiques au cumul d'avertissements (paliers réglables : exclusion, expulsion, ban, ban temporaire)." },
+      { "type": "feature", "module": "moderation", "text": "Ban temporaire (/tempban et panel), levé automatiquement à l'échéance ; /lock avec une durée." },
+      { "type": "feature", "module": "moderation", "text": "Automod « mots interdits » tolérant aux contournements (accents, leet speak, lettres répétées ou espacées) avec seuil de similarité, exemptions, test et revue des faux positifs sur le panel." },
+      { "type": "feature", "module": "moderation", "text": "Notes internes sur un membre (/note et onglet Joueur du panel)." },
+      { "type": "feature", "module": "moderation", "text": "Modifier (raison, durée) ou annuler une sanction déjà publiée : /sanction modifier|annuler et historique du panel." },
+      { "type": "feature", "module": "moderation", "text": "Contestation des sanctions (/contester), désactivée par défaut et reliée à un type de ticket." },
+
+      { "type": "feature", "module": "permissions", "text": "/permission check : explique pourquoi un membre peut (ou non) utiliser une commande ; aussi sur le panel." },
+      { "type": "feature", "module": "permissions", "text": "Modèles de permissions créés à partir d'un rôle, et copie des règles d'un rôle vers un autre (Discord et panel)." },
+      { "type": "feature", "module": "permissions", "text": "Accords temporaires (option « duree ») pour les commandes et les accès au panel web, retirés automatiquement." },
+
+      { "type": "feature", "module": "support", "text": "Réordonner les nœuds, mesurer l'efficacité (vues, avis utiles, tickets ouverts) et limiter une catégorie à certains rôles." },
+
+      { "type": "feature", "module": "whitelist", "text": "Plage horaire par salon : restrictions actives seulement sur la plage, membres présents revérifiés à son début." },
+      { "type": "feature", "module": "whitelist", "text": "Accès temporaires (/whitelist invite) et admins limités à certains salons, qui peuvent aussi inviter." },
+
+      { "type": "feature", "module": "stats", "text": "Rapport hebdomadaire publié automatiquement et nouvel onglet « Rapports » (historique, génération à la demande, export)." },
+      { "type": "feature", "module": "stats", "text": "Comparaison avec la période précédente sur les indicateurs, et export CSV des graphiques et classements." },
+      { "type": "feature", "module": "stats", "text": "Suivi des invitations (désactivé par défaut) : parrains, invitations les plus utilisées, origine des arrivées." },
+
+      { "type": "feature", "module": "servermanager", "text": "Interface sur le panel web : journal des modifications, rollback avec aperçu et suivi en direct, historique." },
+      { "type": "feature", "module": "servermanager", "text": "Sauvegardes de la structure du serveur (/backup et panel), automatiques si activées, restauration non destructive avec aperçu." },
+
+      { "type": "feature", "module": "web", "text": "Journal d'activité du panel (onglet Activité), notifications (cloche) et retour sur la page d'origine après connexion." },
+      { "type": "feature", "module": "core", "text": "Tests automatiques : npm test." },
+
+      { "type": "change", "module": "core", "text": "Nouvelle permission demandée à l'invitation : « Gérer le serveur » (suivi des invitations). Les nouvelles tables sont créées automatiquement au démarrage." },
+      { "type": "fix", "module": "moderation", "text": "/removewarn : l'avertissement choisi est de nouveau reconnu dans la confirmation." }
+    ]
+  },
+  {
+    "version": "1.2.0",
+    "date": "2026-10-03",
+    "title": "SciensBot et changelog public",
+    "changes": [
+      { "type": "change", "module": "core", "text": "Le bot s'appelle désormais SciensBot (dashboard, pages de connexion, journaux)." },
+      { "type": "feature", "module": "web", "text": "Le changelog est public : consultable sans connexion, avec un bouton « Se connecter » pour accéder au reste du panel." },
+      { "type": "feature", "module": "web", "text": "Changelog : filtre par module (sélecteur ou clic sur l'étiquette d'une modification), combinable avec les catégories ; le lien filtré se partage (?module=…)." }
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-10-03",
+    "title": "Audit : sécurité, performances et cohérence",
+    "changes": [
+      { "type": "feature", "module": "core", "text": "Nouvel onglet Changelog sur le panel web et commande /changelog (version au choix, dernière par défaut)." },
+
+      { "type": "security", "module": "tickets", "text": "Les pièces jointes des tickets et du modmail sont servies isolées : un fichier joint ne peut plus exécuter de script sur le dashboard." },
+      { "type": "security", "module": "tickets", "text": "L'accès aux pièces jointes vérifie le serveur et le droit « voir les transcriptions »." },
+      { "type": "security", "module": "web", "text": "Un compte autorisé du dashboard n'accède plus qu'aux serveurs dont il est membre (les propriétaires du bot gardent l'accès à tout)." },
+      { "type": "security", "module": "web", "text": "Les droits /permission grant-panel s'appliquent désormais aussi à Modération, Whitelist Vocal, Laisse et Statistiques." },
+      { "type": "security", "module": "moderation", "text": "/blacklist et /unblacklist sont réservées aux propriétaires du bot ; la levée ne touche plus que les bannissements posés par la blacklist." },
+      { "type": "security", "module": "moderation", "text": "La hiérarchie des rôles est toujours vérifiée pour les sanctions faites depuis le panel web." },
+      { "type": "security", "module": "moderation", "text": "/sanction et l'option « preuve » refusent un message d'un salon que l'auteur de la commande ne peut pas lire." },
+      { "type": "security", "module": "web", "text": "Salons de journal, catégories, couleurs, images et types de tickets sont validés côté serveur (plus de salon d'un autre serveur)." },
+      { "type": "security", "module": "stats", "text": "Durée de conservation du contenu des messages réglable (STATS_CONTENT_RETENTION_DAYS) ; la fiche d'un membre ne montre plus que les serveurs accessibles." },
+
+      { "type": "fix", "module": "moderation", "text": "Shadow-ban depuis le panel web réparé : l'état des salons est mémorisé puis restauré à la levée, comme sur Discord." },
+      { "type": "fix", "module": "tickets", "text": "Transcript modmail : les pièces jointes affichaient le mauvais fichier." },
+      { "type": "fix", "module": "tickets", "text": "Un fil modmail dont le salon est supprimé à la main est fermé : le membre peut de nouveau écrire au staff." },
+      { "type": "fix", "module": "tickets", "text": "Plus de ticket ni de fil modmail en double (double-clic, messages privés envoyés en rafale)." },
+      { "type": "fix", "module": "tickets", "text": "Administrateurs et propriétaire du serveur reconnus comme staff (prise en charge obligatoire, relances, clôture automatique)." },
+      { "type": "fix", "module": "web", "text": "Panels Tickets et Support : les comptes non administrateurs recevaient une erreur interne à la vérification de leurs droits." },
+
+      { "type": "perf", "module": "tickets", "text": "Transcript live incrémental : seuls les messages nouveaux ou modifiés sont rechargés." },
+      { "type": "perf", "module": "tickets", "text": "Panel web : état calculé sans requête par ticket ; mentions résolues une seule fois par membre." },
+      { "type": "perf", "module": "tickets", "text": "Plus aucune requête en base pour les messages postés hors des salons de tickets et de modmail." },
+      { "type": "perf", "module": "moderation", "text": "Liste des bannis mise en cache (le bouton Actualiser la relit auprès de Discord)." },
+      { "type": "perf", "module": "core", "text": "Vérifications sur plusieurs serveurs faites en parallèle (panel web, modmail, blacklist) ; balayages planifiés sans chevauchement." },
+
+      { "type": "style", "module": "web", "text": "Composants communs (onglets, barres d'outils, boutons, formulaires) : même rendu sur tous les modules." },
+      { "type": "style", "module": "web", "text": "Boîtes de dialogue du dashboard à la place des fenêtres du navigateur pour les confirmations et raisons." },
+      { "type": "style", "module": "tickets", "text": "Transcript : messages suivants alignés, zone de réponse stylée, mentions lisibles en thème clair." },
+
+      { "type": "change", "module": "moderation", "text": "/purge demande confirmation et rattache au salon recréé les journaux, panels et menus de tous les modules." },
+      { "type": "change", "module": "moderation", "text": "Commandes de modération, RôleMenu et Server Manager : accès géré uniquement par /permission." },
+      { "type": "change", "module": "permissions", "text": "/permission purge efface aussi les accès au panel web." },
+      { "type": "change", "module": "core", "text": "Le lien d'invitation demande les permissions nécessaires aux modules." }
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "2026-09-30",
+    "title": "Version de référence",
+    "changes": [
+      { "type": "feature", "module": "core", "text": "Bot modulaire (slash commands) et dashboard web centralisé avec connexion Discord." },
+      { "type": "feature", "module": "tickets", "text": "Panels de tickets multi-types, modmail multi-catégories, transcripts web et notation de fin de ticket." },
+      { "type": "feature", "module": "moderation", "text": "Sanctions avec preuves, blacklist globale, verrouillage de salons, shadow-ban et historique." },
+      { "type": "feature", "module": "support", "text": "Support automatique : FAQ interactive avec ouverture de ticket." },
+      { "type": "feature", "module": "core", "text": "Modules Permissions, RôleMenu, Whitelist Vocal, Laisse, Statistiques et Server Manager." }
+    ]
+  }
+]

@@ -1,0 +1,97 @@
+/* Module Support automatique — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+/* Repère « à quel niveau on est » en tête d'un nœud ouvert : chemin complet depuis le panel. */
+.breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.crumb-sep {
+  opacity: 0.5;
+}
+.crumb-node.current {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Encart mis en avant : la section la plus cherchée d'une réponse (ne pas la manquer). */
+.ticket-escalation {
+  padding: 10px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ticket-escalation .section-title {
+  margin: 0;
+}
+
+/* Arbre des catégories/réponses : indentation croissante par profondeur. */
+.node-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.node-children {
+  margin-left: 22px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border);
+}
+.node-kind-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--badge-text);
+}
+.node-kind-badge.response {
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.node-kind-badge.restricted {
+  background: transparent;
+  border: 1px solid var(--chart-mean);
+  color: var(--chart-mean);
+}
+.node-head-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.node-stats {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.role-restriction summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.rate-good {
+  color: var(--good);
+  font-weight: 600;
+}
+.rate-bad {
+  color: var(--critical);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .node-children {
+    margin-left: 10px;
+    padding-left: 8px;
+  }
+}

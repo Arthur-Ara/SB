@@ -1,0 +1,89 @@
+/* Module Permissions — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+.filters select[multiple] {
+  min-height: 180px;
+  min-width: 320px;
+}
+
+.target-card {
+  margin-bottom: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.target-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex: none;
+}
+.rule-line {
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--text-secondary);
+}
+.rule-line strong {
+  color: var(--text-primary);
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 4px 0 0;
+}
+.chip code {
+  font-family: var(--font-mono);
+}
+.chip-x {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 3px;
+}
+.chip-x:hover {
+  color: var(--critical);
+}
+.target-head .person img {
+  width: 22px;
+  height: 22px;
+}
+.target-head .muted {
+  font-weight: 400;
+  font-size: 12px;
+}
+/* Formulaire intégré à une carte de modèle : la carte porte déjà la marge intérieure. */
+.target-card .filters {
+  padding: 4px 0 0;
+}
+
+/* Accord temporaire : échéance accolée à la commande ou au droit concerné. */
+.expiry {
+  margin-left: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--chart-mean);
+  color: var(--chart-mean);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .filters select[multiple] {
+    min-width: 0;
+    width: 100%;
+  }
+}

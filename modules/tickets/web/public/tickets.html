@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tickets · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/tickets/assets/tickets.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/tickets/assets/format.js" defer></script>
+    <script src="/m/tickets/assets/tickets.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🎫 Tickets</h1>
+        <span class="status-line">Les actions faites ici sont journalisées sur Discord.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Tickets activé. Active-le avec <code>/modules</code> sur Discord (réservé aux
+        administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <section class="tiles" id="tiles" aria-label="Indicateurs"></section>
+
+        <div class="tabs" id="tabs" role="tablist">
+          <button type="button" class="tab-btn" data-tab="overview" role="tab">⚙️ Réglages</button>
+          <button type="button" class="tab-btn" data-tab="panels" role="tab">🎫 Panels</button>
+          <button type="button" class="tab-btn" data-tab="modmail" role="tab">📨 Modmail</button>
+          <button type="button" class="tab-btn" data-tab="open" role="tab">📬 Tickets ouverts</button>
+          <button type="button" class="tab-btn" data-tab="history" role="tab">🗂️ Historique</button>
+          <button type="button" class="tab-btn" data-tab="ratings" role="tab">⭐ Notations</button>
+        </div>
+
+        <div class="tab-panel" id="tab-overview" role="tabpanel">
+          <h2 class="section-title">Réglages</h2>
+          <section class="card" id="settings-card"></section>
+
+          <h2 class="section-title">Admins du module</h2>
+          <section class="card" id="admins-card"></section>
+
+          <h2 class="section-title">Réponses prédéfinies</h2>
+          <section class="card" id="snippets-card"></section>
+
+          <h2 class="section-title">Étiquettes</h2>
+          <section class="card" id="tags-card"></section>
+
+          <h2 class="section-title">Liste noire</h2>
+          <section class="card" id="blacklist-card"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-panels" role="tabpanel" hidden>
+          <div id="panels-list"></div>
+          <div class="card">
+            <div class="filters"><button type="button" class="btn btn-primary" id="add-panel">+ Nouveau panel</button></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-modmail" role="tabpanel" hidden>
+          <h2 class="section-title">Réglages</h2>
+          <section class="card" id="modmail-card"></section>
+
+          <h2 class="section-title">Catégories</h2>
+          <div id="modmail-categories-list"></div>
+          <div class="card">
+            <div class="filters"><button type="button" class="btn btn-primary" id="add-modmail-category">+ Nouvelle catégorie</button></div>
+          </div>
+
+          <h2 class="section-title">Préfixes de grade</h2>
+          <section class="card" id="modmail-prefixes-card"></section>
+
+          <h2 class="section-title">Fils ouverts</h2>
+          <section class="card" id="modmail-open-card"></section>
+
+          <h2 class="section-title">Fils fermés (100 derniers)</h2>
+          <section class="card" id="modmail-closed-card"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-open" role="tabpanel" hidden>
+          <div class="open-blocks" id="open-tickets-blocks"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-history" role="tabpanel" hidden>
+          <section class="card" id="history-filters-card"></section>
+          <section class="card" id="closed-tickets-card"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-ratings" role="tabpanel" hidden>
+          <p class="muted">
+            La notation n’est demandée à l’ouvreur qu’une fois le ticket définitivement archivé (salon supprimé, pas
+            simplement fermé), et uniquement si le ticket a été <strong>pris en charge</strong> et n’a pas été fermé
+            automatiquement. Le nombre d’avis est indiqué entre parenthèses.
+          </p>
+          <div class="subtabs" id="rating-subtabs" role="tablist" aria-label="Notations">
+            <button type="button" class="subtab-btn" data-sub="staff" role="tab">👤 Moyennes par staff</button>
+            <button type="button" class="subtab-btn" data-sub="types" role="tab">🎫 Par type de ticket</button>
+            <button type="button" class="subtab-btn" data-sub="reviews" role="tab">📝 Tous les avis</button>
+          </div>
+          <div class="subtab-panel" id="sub-staff" role="tabpanel">
+            <section class="card" id="ratings-staff-card"></section>
+          </div>
+          <div class="subtab-panel" id="sub-types" role="tabpanel" hidden>
+            <section class="card" id="ratings-types-card"></section>
+          </div>
+          <div class="subtab-panel" id="sub-reviews" role="tabpanel" hidden>
+            <section class="card" id="ratings-reviews-card"></section>
+          </div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

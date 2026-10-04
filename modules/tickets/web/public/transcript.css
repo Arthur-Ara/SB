@@ -1,0 +1,377 @@
+/* Page transcript — simulation légère de l'interface Discord. */
+
+.transcript-head {
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+.transcript-head h1 {
+  font-size: 17px;
+}
+.transcript-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+.transcript-delays {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.transcript-delays strong {
+  color: var(--text-primary);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  border: 1px solid var(--border-strong);
+}
+.status-pill.open {
+  color: var(--good);
+  border-color: var(--good);
+}
+.status-pill.closed {
+  color: var(--critical);
+  border-color: var(--critical);
+}
+
+.discord-shell {
+  background: #313338;
+  border-radius: var(--radius);
+  padding: 16px 12px;
+  color: #dbdee1;
+  font-family: var(--font);
+}
+:root[data-theme="light"] .discord-shell {
+  background: #ffffff;
+  color: #2e3338;
+  border: 1px solid var(--border);
+}
+
+.dmsg-group {
+  display: flex;
+  gap: 14px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.dmsg-group:hover {
+  background: rgba(4, 4, 5, 0.07);
+}
+.dmsg-avatar img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-top: 2px;
+}
+.dmsg-body {
+  min-width: 0;
+  flex: 1;
+}
+.dmsg-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.dmsg-author {
+  font-weight: 600;
+  font-size: 15px;
+  color: #f2f3f5;
+}
+:root[data-theme="light"] .dmsg-author {
+  color: #060607;
+}
+.dmsg-time {
+  font-size: 11px;
+  color: #949ba4;
+}
+.dmsg-badge {
+  font-size: 10px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--badge-text);
+}
+.dmsg-content {
+  font-size: 15px;
+  line-height: 1.375;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dmsg-content code {
+  background: rgba(4, 4, 5, 0.28);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.dmsg-content pre {
+  background: rgba(4, 4, 5, 0.28);
+  padding: 8px 10px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+}
+.dmsg-content a {
+  color: #00a8fc;
+}
+.emoji {
+  width: 22px;
+  height: 22px;
+  vertical-align: -0.35em;
+  object-fit: contain;
+}
+.dmsg-content.jumbo .emoji {
+  width: 48px;
+  height: 48px;
+}
+.dmsg-content.jumbo {
+  font-size: 40px;
+  line-height: 1.2;
+}
+.dmsg-media {
+  margin-top: 6px;
+}
+.dmsg-media img,
+.dmsg-media video {
+  display: block;
+  max-width: min(100%, 400px);
+  max-height: 320px;
+  border-radius: 6px;
+}
+.dmsg-sticker {
+  width: 160px;
+  height: 160px;
+  object-fit: contain;
+}
+/* Message suivant d'un même auteur : aligné sur le texte du premier (gouttière de 10 + 40 + 14 px), l'heure
+   s'affiche dans la gouttière au survol — positionnée hors du flux pour ne pas décaler le message. */
+.dmsg-continuation {
+  position: relative;
+  padding-left: 64px;
+}
+.dmsg-continuation .dmsg-time {
+  position: absolute;
+  left: 4px;
+  top: 7px;
+  width: 54px;
+  font-size: 10px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  opacity: 0;
+}
+.dmsg-continuation:hover .dmsg-time {
+  opacity: 1;
+}
+
+.dmsg-embed {
+  margin-top: 6px;
+  max-width: 480px;
+  padding: 10px 12px;
+  border-left: 4px solid #5865f2;
+  border-radius: 4px;
+  background: rgba(46, 48, 54, 0.6);
+}
+:root[data-theme="light"] .dmsg-embed {
+  background: #f2f3f5;
+}
+.dmsg-embed .de-title {
+  font-weight: 600;
+  color: inherit;
+  margin-bottom: 3px;
+}
+.dmsg-embed .de-desc {
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+/* Champs d'embed (ex. réponses au formulaire) : comme sur Discord, en ligne quand `inline`. */
+.dmsg-embed .de-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 6px;
+}
+.dmsg-embed .de-field {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.dmsg-embed .de-field.inline {
+  flex: 1 1 140px;
+}
+.dmsg-embed .de-field-name {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.dmsg-embed .de-field-value {
+  font-size: 13px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.dmsg-embed .de-footer {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #949ba4;
+}
+.dmsg-embed img,
+.dmsg-embed video {
+  max-width: 100%;
+  border-radius: 4px;
+  margin-top: 6px;
+}
+
+.dmsg-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.dmsg-attachment img,
+.dmsg-attachment video {
+  max-width: 320px;
+  max-height: 320px;
+  border-radius: 6px;
+  display: block;
+}
+.dmsg-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  background: rgba(4, 4, 5, 0.28);
+  color: inherit;
+  font-size: 13px;
+}
+
+.mention {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: rgba(88, 101, 242, 0.3);
+  color: #c9cdfb;
+}
+/* Thème clair : texte plus foncé, sinon la mention est presque illisible sur fond blanc. */
+:root[data-theme="light"] .mention {
+  background: rgba(88, 101, 242, 0.15);
+  color: #4752c4;
+}
+:root[data-theme="light"] .dmsg-content code,
+:root[data-theme="light"] .dmsg-content pre,
+:root[data-theme="light"] .dmsg-file {
+  background: rgba(4, 4, 5, 0.06);
+}
+
+.reply-box {
+  margin-top: 14px;
+  padding: 12px 14px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.reply-box textarea {
+  flex: 1;
+  min-height: 44px;
+}
+.reply-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+/* Boutons d'action du staff dans l'en-tête (prendre en charge, fermer). */
+.transcript-actions {
+  margin-top: 10px;
+}
+.reply-locked {
+  flex: 1;
+  padding: 10px 2px;
+  font-size: 13px;
+}
+
+.transcript-tag {
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  font-size: 12px;
+}
+.transcript-answers {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.transcript-answers summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+.transcript-answers .answer {
+  margin-top: 8px;
+}
+.transcript-answers .answer div {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+
+.transcript-closed-note {
+  padding: 12px 14px;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  /* 6 + 30 (avatar) + 8 (écart) px : toujours aligné sur le premier message du groupe. */
+  .dmsg-continuation {
+    padding-left: 44px;
+  }
+  .dmsg-continuation .dmsg-time {
+    display: none;
+  }
+  .reply-box {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .discord-shell {
+    padding: 10px 6px;
+  }
+  .dmsg-group {
+    gap: 8px;
+    padding: 4px 6px;
+  }
+  .dmsg-avatar img {
+    width: 30px;
+    height: 30px;
+  }
+  .dmsg-author {
+    font-size: 14px;
+  }
+  .dmsg-content {
+    font-size: 14px;
+  }
+  .transcript-head {
+    padding: 12px;
+  }
+  .transcript-head h1 {
+    font-size: 15px;
+  }
+  .dmsg-attachment img,
+  .dmsg-attachment video {
+    max-width: 100%;
+  }
+  .dmsg-embed {
+    max-width: 100%;
+  }
+}

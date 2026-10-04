@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Permissions · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/permissions/assets/permissions.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/permissions/assets/permissions.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>🛡️ Permissions</h1>
+        <span class="status-line">Réservé aux administrateurs du serveur : mêmes règles que la commande <code>/permission</code>.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur où tu es administrateur n’a le bot. Seuls les administrateurs d’un serveur, son propriétaire et
+        les propriétaires du bot peuvent modifier les permissions.
+      </div>
+
+      <div id="content" hidden>
+        <div class="tabs" id="tabs" role="tablist">
+          <button type="button" class="tab-btn" data-tab="roles" role="tab">🏷️ Commandes par rôle</button>
+          <button type="button" class="tab-btn" data-tab="users" role="tab">👤 Commandes par utilisateur</button>
+          <button type="button" class="tab-btn" data-tab="public" role="tab">🌍 Commandes publiques</button>
+          <button type="button" class="tab-btn" data-tab="web" role="tab">🌐 Accès au panel web</button>
+          <button type="button" class="tab-btn" data-tab="templates" role="tab">📋 Modèles et copie</button>
+          <button type="button" class="tab-btn" data-tab="check" role="tab">🔎 Vérifier un accès</button>
+        </div>
+
+        <div class="tab-panel" id="tab-roles" role="tabpanel">
+          <p class="muted">
+            Priorité : règle d’utilisateur, puis règles de rôles (un rôle autorisé suffit, sinon un rôle bloqué
+            interdit), puis commande publique, puis accès par défaut de la commande.
+          </p>
+          <h2 class="section-title">Règles par rôle</h2>
+          <div id="role-rules"></div>
+          <h2 class="section-title">Ajouter ou modifier une règle</h2>
+          <section class="card" id="role-form"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-users" role="tabpanel" hidden>
+          <p class="muted">Une règle individuelle l’emporte toujours sur les règles de rôles.</p>
+          <h2 class="section-title">Règles par utilisateur</h2>
+          <div id="user-rules"></div>
+          <h2 class="section-title">Ajouter ou modifier une règle</h2>
+          <section class="card" id="user-form"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-public" role="tabpanel" hidden>
+          <p class="muted">Une commande publique est utilisable par tous les membres (sauf exclusion de rôle ou individuelle).</p>
+          <section class="card" id="public-card"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-web" role="tabpanel" hidden>
+          <p class="muted">
+            Sans aucun accès configuré pour une catégorie, tout compte autorisé du dashboard y garde un accès complet.
+            Dès qu’un rôle y reçoit un accès, seuls ces rôles (et les administrateurs) y accèdent. Les droits d’une
+            catégorie sont séparés par une virgule ; « tous les droits » regroupe l’ensemble.
+          </p>
+          <h2 class="section-title">Accès par rôle</h2>
+          <div id="web-grants"></div>
+          <h2 class="section-title">Accorder ou retirer des accès</h2>
+          <section class="card" id="web-form"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-templates" role="tabpanel" hidden>
+          <p class="muted">
+            Un modèle est un instantané des règles d’un rôle (commandes et accès au panel web), à réappliquer sur
+            d’autres rôles. Appliquer un modèle complète les règles du rôle, ou les remplace si la case est cochée.
+          </p>
+          <h2 class="section-title">Modèles enregistrés</h2>
+          <div id="templates-list"></div>
+          <h2 class="section-title">Créer un modèle à partir d’un rôle</h2>
+          <section class="card" id="template-form"></section>
+          <h2 class="section-title">Copier les permissions d’un rôle vers un autre</h2>
+          <section class="card" id="clone-form"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-check" role="tabpanel" hidden>
+          <p class="muted">Explique, règle par règle, pourquoi un membre peut ou non utiliser une commande.</p>
+          <section class="card" id="check-form"></section>
+          <div id="check-result"></div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

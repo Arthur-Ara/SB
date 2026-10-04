@@ -1,0 +1,62 @@
+/* Module Whitelist Vocal — styles spécifiques (jetons et composants communs : /assets/core.css). */
+
+.channel-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 14px 14px 0;
+}
+.channel-editor-head h3 {
+  font-size: 15px;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 6px 12px;
+  padding: 12px 14px;
+}
+.role-grid label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.role-grid label:hover {
+  color: var(--text-primary);
+}
+.role-grid input {
+  height: auto;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+/* Réglages appliqués immédiatement (plage horaire, accès temporaires, admins du salon), séparés du brouillon. */
+.channel-extras {
+  margin-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.channel-extras > p.muted {
+  margin: 0;
+  padding: 0 14px;
+  font-size: 13px;
+}
+.channel-extras .section-title {
+  padding: 0 14px;
+}
+
+@media (max-width: 640px) {
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Textes et titres posés directement dans l'éditeur de salon : même retrait que les formulaires. */
+#channel-editor > p.muted,
+#channel-editor > .section-title {
+  padding: 0 14px;
+}

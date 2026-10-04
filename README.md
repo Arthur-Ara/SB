@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # SciensBot
 
 Bot Discord modulaire (slash commands uniquement) accompagné d'un dashboard web centralisé, réservé à une liste de membres de confiance.
@@ -93,6 +92,7 @@ modules/
   support/               module Support Automatique (désactivé par défaut)
   servermanager/         module Server Manager : journal, /rollback, sauvegardes, panel web (désactivé par défaut)
   rolemenu/              module RôleMenu : menus de rôles + conditions d'accès (désactivé par défaut)
+  candidature/           module Candidatures : statuts, recruteurs, contrôle des critères (désactivé par défaut)
 ```
 
 Un module peut consulter en lecture les services d'un autre via `ctx.modules.services('nom-du-module')` (renvoie
@@ -751,6 +751,61 @@ pour prévenir le staff que la demande vient du support automatique. **Configura
   certains rôles est invisible pour les autres, sous-arbre compris) et **efficacité** : vues, avis « Utile / Pas
   utile » (boutons sous chaque réponse) et tickets ouverts depuis chaque réponse, avec un tableau des taux.
 
+## Module Candidatures
+
+Dépôt de candidatures par **catégorie** (Modérateur, Animateur…), sur le modèle des tickets : un panel publié sur
+Discord (boutons ou menu déroulant) ouvre un **salon privé** où le candidat rédige sa candidature (texte, captures,
+fichiers), visible des seuls **recruteurs** de la catégorie. Chaque candidature suit un **statut** :
+
+`📝 En rédaction` › `⏳ En attente` › `👀 Prise en compte` › `⚙️ En traitement` › `🎤 Attente entretien` › `✅ Acceptée` / `❌ Refusée`
+(+ `↩️ Retirée` si le candidat se retire ou si le salon est supprimé à la main).
+
+- **Candidat** : clique sur **✅ Terminer ma candidature** (ou `/candidature terminer`) quand il a fini ; la
+  candidature passe « En attente » et les recruteurs sont notifiés. `/candidature status` affiche toutes ses
+  candidatures, leur statut sur une frise, le motif d'une décision et, après un refus, la date à partir de laquelle
+  il peut se représenter. Chaque changement de statut lui est aussi envoyé en message privé.
+- **Recruteurs** : menu de statut dans le salon (ou `/candidature statut`, ou le panel web) ; un refus demande un
+  **motif** (obligatoire si l'admin l'exige), une acceptation une précision facultative et donne le rôle
+  d'acceptation configuré. **🔀 Changer de catégorie** (ou `/candidature categorie`, ou le panel web) corrige une
+  erreur du candidat : le salon change de catégorie Discord et de recruteurs, le modèle de la nouvelle catégorie est
+  republié. `/candidature historique membre:` liste **toutes les candidatures d'un membre**, leur issue, le motif et
+  qui a décidé (ou « automatique »). Une fois clôturée, le salon est verrouillé et peut être supprimé (bouton).
+- **Transcription** : tous les messages de chaque candidature (candidat, recruteurs, bot, modifications, copies des
+  pièces jointes) sont enregistrés dès l'ouverture ; la page `/m/candidature/transcript?candidature=<id>` les affiche
+  façon Discord avec les réponses au formulaire, le motif, et l'historique complet (ouverture, envoi, statuts,
+  changements de catégorie). Le lien est ajouté dans le salon à la clôture.
+- **Réglages (admins, panel web `/m/candidature/`)** : par catégorie — **modèle** (embed d'ouverture avec variables
+  `{user} {category} {number} {retry} {criteria}`…), catégorie Discord, rôles recruteurs / notifiés, rôle
+  d'acceptation, maximum de candidatures en cours, **délai de représentation** après un refus, formulaire
+  facultatif (5 questions, longueur min/max par question) ; pour le serveur — **refus motivé obligatoire ou non**,
+  **réponses automatiques** par statut (dans le salon, et en privé si coché), salon de journal, panel.
+
+### Contrôle automatique des critères
+
+Activable par catégorie. Quand le candidat termine sa candidature, le bot vérifie aussitôt les critères définis par
+les admins ; en cas de non-respect, la candidature est **refusée automatiquement** avec la liste des éléments non
+respectés et le délai de représentation (s'il y en a un), dans le salon et en message privé. Les critères sont
+rappelés au candidat dans le message d'ouverture. Critères disponibles (vide = non contrôlé) :
+
+| Critère | Vérification |
+| --- | --- |
+| Parties attendues | Le candidat écrit le nom de la partie en début de ligne (`Présentation : …`, `**Motivations**`, `## Disponibilités`) ; le texte qui suit, jusqu'à la partie suivante, lui est attribué. Par partie : obligatoire ou non, caractères min / max. |
+| Longueur totale | Caractères min / max de tout le texte du candidat (formulaire + messages). |
+| Questions du formulaire | Caractères min / max par question (aussi imposés par la fenêtre Discord). |
+| Messages, pièces jointes | Nombre minimum de messages / de fichiers envoyés dans le salon. |
+| Mots obligatoires / interdits | Sans tenir compte des accents ni de la casse (mots entiers pour les interdits). |
+| Profil | Ancienneté du compte Discord et sur le serveur, rôles requis / incompatibles. |
+
+Le texte contrôlé est celui de la transcription (contenu final des messages modifiés), ce qui ne coûte aucune requête
+Discord : un seul appel en base au moment de l'envoi. Les fonctions de contrôle sont pures
+(`modules/candidature/lib/criteria.js`) et couvertes par `test/candidature.test.js`.
+
+### Accès
+
+Module **désactivé par défaut** (`/modules`). Sur le panel web, un recruteur ne voit que les candidatures des
+catégories dont il a un rôle de recruteur (les admins voient tout) ; droits réglables avec `/permission grant-panel`
+(catégorie `candidature` : `view-candidatures`, `view-transcripts`, `manage-candidatures`, `manage-settings`).
+
 ## Module Statistiques
 
 | Donnée | Source |
@@ -826,6 +881,3 @@ Par défaut, `/stats` est réservée aux administrateurs (données de membres) :
 - **Départs pendant une absence du bot** : ils sont datés du redémarrage (source « rattrapage »).
 - **Fuseau horaire** : les regroupements utilisent le décalage horaire actuel du navigateur ; un changement d'heure (été/hiver)
   dans la période décale d'une heure les intervalles situés de l'autre côté.
-=======
-# SB
->>>>>>> c3609fa52865537e6509bb8b29798b89d563a741

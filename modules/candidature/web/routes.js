@@ -12,6 +12,9 @@ const { isAdmin } = require('../lib/guard');
 const { publishPanel, setStatus, changeCategory, deleteChannel, sendLog } = require('../lib/lifecycle');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
+// Rendu façon Discord partagé avec les transcriptions de tickets (mise en forme Markdown, bulles de messages).
+const SHARED_ASSETS = { 'format.js': 'format.js', 'transcript.css': 'transcript.css' };
+const TICKETS_PUBLIC_DIR = path.join(__dirname, '..', '..', 'tickets', 'web', 'public');
 const PAGE_SIZE = 50;
 const TEXT_TYPES = new Set([ChannelType.GuildText, ChannelType.GuildAnnouncement]);
 const BUTTON_STYLES = new Set(['primary', 'secondary', 'success', 'danger']);
@@ -159,6 +162,31 @@ module.exports = function registerWeb(router, ctx) {
     };
   }
 
+  /** Noms et couleurs des mentions (<@id> <@&id> <#id>) des messages, pour l'affichage façon Discord. */
+  async function resolveMentions(guild, messages) {
+    const text = messages.map((m) => [m.content ?? '', ...(m.embeds ?? []).flatMap((e) => [e?.description ?? '', ...(e?.fields ?? []).map((f) => f?.value ?? '')])].join('\n')).join('\n');
+    const out = { users: {}, roles: {}, channels: {} };
+    const userIds = [...new Set([...text.matchAll(/<@!?(\d{15,25})>/g)].map((x) => x[1]))].slice(0, 50);
+    await Promise.all(
+      userIds.map(async (id) => {
+        const member = guild.members.cache.get(id) ?? (await guild.members.fetch(id).catch(() => null));
+        const user = member?.user ?? ctx.client.users.cache.get(id) ?? (await ctx.client.users.fetch(id).catch(() => null));
+        if (!user) return;
+        const color = member?.displayHexColor && member.displayHexColor !== '#000000' ? member.displayHexColor : null;
+        out.users[id] = { name: member?.displayName ?? user.globalName ?? user.username, color };
+      }),
+    );
+    for (const [, id] of text.matchAll(/<@&(\d{15,25})>/g)) {
+      const role = guild.roles.cache.get(id);
+      if (role) out.roles[id] = { name: role.name, color: role.hexColor !== '#000000' ? role.hexColor : null };
+    }
+    for (const [, id] of text.matchAll(/<#(\d{15,25})>/g)) {
+      const channel = guild.channels.cache.get(id);
+      if (channel) out.channels[id] = { name: channel.name };
+    }
+    return out;
+  }
+
   function logWeb(req, guild, text) {
     return sendLog(ctx, guild, [`🌐 **${webUserOf(req).name}** (panel web) — ${text}`]);
   }
@@ -167,6 +195,7 @@ module.exports = function registerWeb(router, ctx) {
     res.set('Cache-Control', 'no-store');
     next();
   });
+  for (const [name, file] of Object.entries(SHARED_ASSETS)) router.get(`/assets/${name}`, (req, res) => res.sendFile(path.join(TICKETS_PUBLIC_DIR, file)));
   router.use('/assets', express.static(PUBLIC_DIR, { index: false, maxAge: 0 }));
   router.get('/', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'candidature.html')));
   router.get('/transcript', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'transcript.html')));
@@ -365,7 +394,9 @@ module.exports = function registerWeb(router, ctx) {
           createdAt: m.created_at,
           updatedAt: m.updated_at,
         })),
+        mentions: await resolveMentions(guild, messages),
         canManage,
+        refusalReasonRequired: (await candidatures.settings(guild.id)).refusalReasonRequired,
         categories: canManage ? categories.filter((c) => c.id !== candidature.category_id).map((c) => ({ id: c.id, label: c.label })) : [],
         statuses: RECRUITER_STATUSES.map((key) => ({ key, label: STATUSES[key].label, emoji: STATUSES[key].emoji })),
         guildId: guild.id,

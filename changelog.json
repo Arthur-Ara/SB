@@ -1,5 +1,18 @@
 [
   {
+    "version": "1.5.0",
+    "date": "2026-10-04",
+    "title": "Candidatures",
+    "changes": [
+      { "type": "feature", "module": "candidature", "text": "Nouveau module Candidatures : panel par catégorie, salon privé par candidature, statuts En attente › Prise en compte › En traitement › Attente entretien › Acceptée / Refusée, suivi par le candidat avec /candidature status et en message privé." },
+      { "type": "feature", "module": "candidature", "text": "Recruteurs : changement de statut (menu du salon, /candidature statut ou panel web), refus motivé (obligatoire ou non), changement de catégorie en cas d'erreur du candidat, et /candidature historique pour voir toutes les candidatures d'un membre avec leurs issues et motifs." },
+      { "type": "feature", "module": "candidature", "text": "Contrôle automatique des critères à l'envoi : parties attendues avec caractères min/max par partie, longueur totale, messages, pièces jointes, mots obligatoires/interdits, ancienneté, rôles. En cas de non-respect : refus automatique listant les éléments non respectés et le délai de représentation." },
+      { "type": "feature", "module": "candidature", "text": "Panel web /m/candidature/ : candidatures en cours par catégorie, historique filtrable par candidat, configuration des catégories (modèle d'ouverture, formulaire, critères), réponses automatiques par statut, panel Discord, et transcription de chaque candidature." },
+      { "type": "feature", "module": "permissions", "text": "Droits du panel web pour les candidatures (/permission grant-panel, catégorie candidature)." },
+      { "type": "fix", "module": "core", "text": "README : marqueurs de conflit de fusion retirés." }
+    ]
+  },
+  {
     "version": "1.4.1",
     "date": "2026-10-04",
     "title": "Correctifs du panel",

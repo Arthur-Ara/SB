@@ -1,6 +1,6 @@
 {
   "name": "sciensbot",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "description": "Bot Discord modulaire (slash commands) avec dashboard web centralisé — Discord.js, MySQL, Express.",
   "main": "src/index.js",

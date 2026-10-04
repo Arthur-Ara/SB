@@ -62,6 +62,15 @@ const WEB_CATEGORIES = {
       manage: 'Réglages du module (salon de journal, sauvegardes automatiques)',
     },
   },
+  candidature: {
+    label: 'Candidatures',
+    rights: {
+      'view-candidatures': 'Voir les candidatures en cours et l’historique (catégories dont on est recruteur)',
+      'view-transcripts': 'Voir les transcriptions des candidatures',
+      'manage-candidatures': 'Changer le statut ou la catégorie d’une candidature, supprimer son salon',
+      'manage-settings': 'Catégories, modèle, formulaire, critères, réponses automatiques et panel',
+    },
+  },
   support: {
     label: 'Support automatique',
     rights: {

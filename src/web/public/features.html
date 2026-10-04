@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="fr" data-public>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fonctionnalités · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/assets/features.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page page-narrow" id="main">
+      <div class="page-head">
+        <h1>✨ Fonctionnalités</h1>
+        <span class="status-line" id="summary">Tous les modules, leurs commandes et leurs fonctionnalités. Sur Discord : <code>/help</code>.</span>
+      </div>
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div class="card toolbar">
+        <label class="field field-grow feature-search"><span>Rechercher</span><input type="search" id="search" placeholder="Module, commande ou fonctionnalité…" /></label>
+      </div>
+      <nav class="feature-index" id="index" aria-label="Modules"></nav>
+      <section id="modules" aria-live="polite"></section>
+    </main>
+  </body>
+</html>

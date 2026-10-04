@@ -16,6 +16,13 @@ module.exports = {
   label: 'Support automatique',
   emoji: '❓',
   description: 'FAQ interactive (panels, catégories, réponses) avec ouverture de ticket si besoin.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'FAQ interactive : panels, catégories imbriquées et réponses',
+    'Bouton « Créer un ticket » si la réponse ne suffit pas (module Tickets)',
+    'Réponses réservées à certains rôles',
+    'Statistiques d’efficacité : vues, avis utiles, tickets ouverts par réponse',
+  ],
   defaultEnabled: false,
 
   async init(ctx) {

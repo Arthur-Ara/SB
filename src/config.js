@@ -105,10 +105,13 @@ const config = {
     sessionSecretGenerated: !sessionSecret,
     trustProxy: bool('TRUST_PROXY', false),
     authorizedUsers: new Set(authorizedWebUsers),
+    envAuthorizedUsers: new Set(authorizedWebUsers),
   },
 
-  // Propriétaires du bot : autorisés à gérer les modules via /modules.
+  // Propriétaires du bot : autorisés à gérer les modules via /modules. Les admins globaux ajoutés avec /admin y sont
+  // ajoutés au démarrage (voir core/botAdmins.js) ; `envOwners` garde la liste du .env, seule habilitée à utiliser /admin.
   owners: new Set(botOwners.length ? botOwners : authorizedWebUsers),
+  envOwners: new Set(botOwners.length ? botOwners : authorizedWebUsers),
 
   modules: {
     disabled: new Set(list('DISABLED_MODULES')),

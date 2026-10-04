@@ -5,6 +5,7 @@ const express = require('express');
 const { ChannelType } = require('discord.js');
 const ui = require('../../../src/bot/ui');
 const { HttpError, wrap, isSnowflake, hexColor, imageUrl, textChannelId } = require('../../../src/web/helpers');
+const { describeChanges, withChanges, noteActivity } = require('../../../src/web/changes');
 const { guildAccess } = require('../../permissions/lib/webAccess');
 const { publishPanel, refreshPanelMessage } = require('../lib/panel');
 
@@ -18,6 +19,7 @@ module.exports = function registerWeb(router, ctx) {
 
   /** Une ligne de journal par modification « finale » faite depuis le panel. */
   function logWeb(req, guild, text) {
+    noteActivity(req, text);
     const user = req.session.user;
     return logs.send(guild.id, ui.card({ description: `🌐 **${user.globalName || user.username}** (panel web) — ${text}`, timestamp: true }));
   }
@@ -163,7 +165,7 @@ module.exports = function registerWeb(router, ctx) {
       if ('placeholder' in body) patch.placeholder = body.placeholder ? String(body.placeholder).slice(0, 150) : null;
       await support.updatePanel(panel.id, patch);
       await refreshPanelMessage(ctx, support, await support.getPanel(panel.id));
-      await logWeb(req, guild, `panel support #${panel.id} modifié.`);
+      await logWeb(req, guild, withChanges(`panel support #${panel.id} modifié.`, describeChanges(panel, patch)));
       res.json(await stateJson(guild));
     }),
   );
@@ -250,7 +252,7 @@ module.exports = function registerWeb(router, ctx) {
       }
       await support.updateNode(node.id, patch);
       await refreshPanelMessage(ctx, support, panel);
-      await logWeb(req, guild, `${node.kind === 'response' ? 'réponse' : 'catégorie'} modifiée : **${patch.label ?? node.label}** (panel #${panel.id}).`);
+      await logWeb(req, guild, withChanges(`${node.kind === 'response' ? 'réponse' : 'catégorie'} modifiée : **${patch.label ?? node.label}** (panel #${panel.id}).`, describeChanges(node, patch)));
       res.json(await stateJson(guild));
     }),
   );

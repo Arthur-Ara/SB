@@ -45,6 +45,7 @@
         el('td', { text: r.moduleLabel || '—' }),
         el('td', { text: r.guild || '—' }),
         el('td', {}, el('code', { text: r.path })),
+        el('td', { class: 'activity-detail' }, r.detail ? el('span', { text: r.detail }) : el('span', { class: 'muted', text: '—' })),
       );
     });
     var pager = el('div', { class: 'hist-pager' },
@@ -69,7 +70,7 @@
       ),
       rows.length
         ? el('div', { class: 'table-wrap' }, el('table', { class: 'data' },
-            el('thead', {}, el('tr', {}, ['Date', 'Compte', 'Action', 'Module', 'Serveur', 'Adresse'].map(function (h) { return el('th', { text: h }); }))),
+            el('thead', {}, el('tr', {}, ['Date', 'Compte', 'Action', 'Module', 'Serveur', 'Adresse', 'Détail'].map(function (h) { return el('th', { text: h }); }))),
             el('tbody', {}, rows)))
         : el('div', { class: 'empty', text: 'Aucune activité enregistrée.' }),
       pager,

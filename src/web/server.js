@@ -10,6 +10,16 @@ const { ActivityLog } = require('./activity');
 const { MySQLSessionStore } = require('./sessionStore');
 const { loadChangelog, TYPES: CHANGELOG_TYPES } = require('../core/changelog');
 
+/** Fonctionnalités du cœur, présentées sur la page « Fonctionnalités ». */
+const CORE_FEATURES = [
+  'Slash commands uniquement, chargées et rechargées à chaud par module (/modules)',
+  'Activation des modules serveur par serveur (/modules, administrateurs)',
+  'Admins globaux du bot avec /admin : tous les serveurs, tous les modules et le panel web (propriétaires du bot)',
+  'Aide interactive (/help) qui ne montre que les commandes utilisables',
+  'Panel web avec connexion Discord, notifications et journal d’activité détaillé (ce qui a été modifié)',
+  'Changelog public de chaque version (/changelog et page Changelog)',
+];
+
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const FONT_PACKAGES = {
   inter: '@fontsource-variable/inter',
@@ -114,6 +124,29 @@ async function startWebServer(core) {
   // ── Pages publiques (sans connexion) : le changelog est consultable par tout le monde ──
   // Seuls des textes destinés au public y figurent (changelog.json) : aucune donnée de serveur ni de membre.
   app.get('/changelog', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'changelog.html')));
+
+  // Page « Fonctionnalités » : modules, commandes et fonctionnalités du bot (aucune donnée de serveur ni de membre).
+  app.get('/features', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'features.html')));
+  app.get('/api/features', (req, res) => {
+    const { version } = require('../../package.json');
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      version,
+      core: { label: 'Cœur', emoji: '⚙️', description: 'Socle du bot, actif partout.', features: CORE_FEATURES, commands: core.commands.describeFor('core') },
+      modules: modules.list().map((m) => ({
+        name: m.name,
+        label: m.label,
+        emoji: m.emoji,
+        description: m.description,
+        features: m.features,
+        required: m.required,
+        defaultEnabled: m.defaultEnabled,
+        loaded: m.loaded,
+        web: m.hasWeb ? `/m/${m.name}/` : null,
+        commands: core.commands.describeFor(m.name),
+      })),
+    });
+  });
   app.get('/api/changelog', (req, res) => {
     const label = (key) => (key === 'core' ? 'Général' : key === 'web' ? 'Panel web' : modules.labelOf(key));
     res.set('Cache-Control', 'no-store');
@@ -146,6 +179,16 @@ async function startWebServer(core) {
 
   // ── Journal d'activité du panel : les propriétaires du bot voient tout, les autres comptes leurs propres actions ──
   app.get('/activity', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'activity.html')));
+  /** Détail d'une action, mentions Discord (<@&id> <#id> <@id>) remplacées par les noms du serveur concerné. */
+  const readableDetail = (row) => {
+    if (!row.detail) return null;
+    const guild = row.guild_id ? core.client.guilds.cache.get(String(row.guild_id)) : null;
+    return String(row.detail)
+      .replace(/<@&(\d{15,25})>/g, (m, id) => `@${guild?.roles.cache.get(id)?.name ?? id}`)
+      .replace(/<#(\d{15,25})>/g, (m, id) => `#${guild?.channels.cache.get(id)?.name ?? id}`)
+      .replace(/<@!?(\d{15,25})>/g, (m, id) => `@${core.client.users.cache.get(id)?.username ?? id}`);
+  };
+
   app.get('/api/activity', async (req, res, next) => {
     try {
       const me = req.session.user.id;
@@ -172,6 +215,7 @@ async function startWebServer(core) {
           moduleLabel: label(row.module),
           guild: row.guild_id ? core.client.guilds.cache.get(String(row.guild_id))?.name ?? String(row.guild_id) : null,
           status: row.status,
+          detail: readableDetail(row),
           createdAt: row.created_at,
         })),
       });

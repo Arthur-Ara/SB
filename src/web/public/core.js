@@ -421,6 +421,7 @@
           var active = path.indexOf(module.path) === 0 || path + '/' === module.path;
           return Core.el('a', { href: module.path, 'aria-current': active ? 'page' : null, text: module.label });
         }),
+        Core.el('a', { href: '/features', 'aria-current': path === '/features' ? 'page' : null, text: 'Fonctionnalités' }),
         Core.el('a', { href: '/changelog', 'aria-current': path === '/changelog' ? 'page' : null, text: 'Changelog' }),
         me ? Core.el('a', { href: '/activity', 'aria-current': path === '/activity' ? 'page' : null, text: 'Activité' }) : null,
       ),

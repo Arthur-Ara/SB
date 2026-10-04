@@ -18,6 +18,14 @@ module.exports = {
   label: 'Whitelist Vocal',
   emoji: '🚪',
   description: 'Accès restreint et limite de places par salon vocal, avec expulsion automatique.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Accès d’un salon vocal réservé à des membres et/ou des rôles',
+    'Limite de places par salon, expulsion automatique des personnes en trop',
+    'Plage horaire des restrictions et accès temporaires',
+    'Exemptions : bots, admins du module, membres déplacés par la Laisse',
+    'Configuration par salon sur Discord (embed interactif) ou sur le panel web',
+  ],
   defaultEnabled: false,
   intents: [GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers],
 

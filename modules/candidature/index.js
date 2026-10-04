@@ -16,6 +16,15 @@ module.exports = {
   label: 'Candidatures',
   emoji: '📨',
   description: 'Candidatures par catégorie avec statuts, recruteurs, réponses automatiques et transcriptions.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Panels de candidatures dans un ou plusieurs salons, avec leurs catégories',
+    'Salon privé par candidature, modèle d’ouverture par catégorie',
+    'Statuts : En attente, Prise en compte, En traitement, Attente entretien, Acceptée, Refusée — suivis avec /candidature status',
+    'Refus motivé, délai de représentation, réponses automatiques par statut',
+    'Acceptation : rôles, message privé, invitation à usage unique vers un autre serveur',
+    'Changement de catégorie par les recruteurs, historique par candidat, transcription de chaque candidature',
+  ],
   defaultEnabled: false,
   intents: [GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
 

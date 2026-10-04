@@ -206,6 +206,7 @@ class ModuleManager {
       label: entry.definition.label ?? name,
       emoji: entry.definition.emoji ?? null,
       description: entry.definition.description ?? '',
+      features: entry.definition.features ?? [],
       required: Boolean(entry.definition.required),
       defaultEnabled: entry.definition.defaultEnabled ?? true,
       loaded: entry.handlersLoaded,

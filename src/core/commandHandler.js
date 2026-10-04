@@ -66,6 +66,30 @@ class CommandHandler {
   namesFor(moduleName) {
     return [...this.commands.values()].filter((c) => c.module === moduleName).map((c) => c.data.name);
   }
+  /**
+   * Description publique des commandes d'un module (page « Fonctionnalités ») : nom, description, sous-commandes
+   * et options, lues dans les définitions des slash commands.
+   */
+  describeFor(moduleName) {
+    const option = (o) => ({ name: o.name, description: o.description, required: Boolean(o.required) });
+    const sub = (o) => ({ name: o.name, description: o.description, options: (o.options ?? []).map(option) });
+    return [...this.commands.values()]
+      .filter((c) => c.module === moduleName)
+      .map((c) => {
+        const json = c.data.toJSON();
+        const options = json.options ?? [];
+        return {
+          name: json.name,
+          description: json.description,
+          ownerOnly: Boolean(c.ownerOnly),
+          // Types Discord : 1 = sous-commande, 2 = groupe de sous-commandes.
+          subcommands: options.flatMap((o) => (o.type === 1 ? [sub(o)] : o.type === 2 ? (o.options ?? []).map((s) => ({ ...sub(s), name: `${o.name} ${s.name}` })) : [])),
+          options: options.filter((o) => o.type !== 1 && o.type !== 2).map(option),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
 
   /** Publie l'ensemble des commandes chargées, globalement (remplace la liste existante côté Discord). */
   async deploy() {

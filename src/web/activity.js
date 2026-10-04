@@ -3,6 +3,24 @@
 const SNOWFLAKE = /^\d{17,20}$/;
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const RETENTION_DAYS = 90;
+const HIDDEN_FIELDS = new Set(['guildId', 'password', 'token', 'secret']);
+
+/**
+ * Repli quand le module n'a pas détaillé l'action (voir web/changes.js#noteActivity) : champs envoyés et valeurs
+ * courtes (« label = Modérateur, maxOpen = 3, modRoleIds = 2 élément(s) »).
+ */
+function bodySummary(body) {
+  if (!body || typeof body !== 'object') return null;
+  const parts = Object.entries(body)
+    .filter(([key]) => !HIDDEN_FIELDS.has(key))
+    .map(([key, value]) => {
+      if (Array.isArray(value)) return `${key} = ${value.length} élément(s)`;
+      if (value && typeof value === 'object') return `${key} = { … }`;
+      const text = value === null || value === '' ? 'vide' : String(value).replace(/\s+/g, ' ');
+      return `${key} = ${text.length > 40 ? `${text.slice(0, 39)}…` : text}`;
+    });
+  return parts.length ? `Champs envoyés : ${parts.join(', ')}` : null;
+}
 
 /**
  * Journal d'activité du panel web : qui s'est connecté, et quelles actions (requêtes POST/PUT/PATCH/DELETE)
@@ -16,10 +34,10 @@ class ActivityLog {
     this.timer = null;
   }
 
-  async record({ userId, username, action, path, module = null, guildId = null, status = null }) {
+  async record({ userId, username, action, path, module = null, guildId = null, status = null, detail = null }) {
     await this.db.query(
-      'INSERT INTO web_activity (user_id, username, action, path, module, guild_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, String(username ?? '').slice(0, 64), action, String(path).slice(0, 200), module, guildId, status, new Date()],
+      'INSERT INTO web_activity (user_id, username, action, path, module, guild_id, status, detail, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, String(username ?? '').slice(0, 64), action, String(path).slice(0, 200), module, guildId, status, detail ? String(detail).slice(0, 2000) : null, new Date()],
     );
   }
 
@@ -41,6 +59,7 @@ class ActivityLog {
           module: moduleMatch ? moduleMatch[1] : null,
           guildId: SNOWFLAKE.test(guild) ? guild : null,
           status: res.statusCode,
+          detail: res.locals.activityDetail ?? bodySummary(req.body),
         }).catch((err) => this.logger.warn('Journal d’activité du panel indisponible', err.message));
       });
       return next();

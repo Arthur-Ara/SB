@@ -21,6 +21,13 @@ module.exports = {
   label: 'Server Manager',
   emoji: '🗂️',
   description: 'Journal des modifications du serveur et rollback (rôles, salons, modération) sur une période.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Journal des modifications du serveur (rôles, salons, modération) avec leur auteur',
+    'Rollback sur une période, par type et par auteur, avec aperçu et garde-fous',
+    'Sauvegardes manuelles et automatiques, restauration non destructive',
+    'Panel web : rollback suivi en direct, journal filtrable, sauvegardes',
+  ],
   defaultEnabled: false,
   intents: [GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildModeration],
 

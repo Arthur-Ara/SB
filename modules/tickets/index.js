@@ -23,6 +23,14 @@ module.exports = {
   label: 'Tickets',
   emoji: '🎫',
   description: 'Panels de tickets multi-types, cycle de vie complet et transcripts.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Panels de tickets multi-types (boutons ou menu), formulaire d’ouverture facultatif',
+    'Prise en charge, étiquettes, réponses prédéfinies, liste noire',
+    'Clôture automatique, reping du staff selon une plage horaire',
+    'Transcripts (live avec réponse depuis le panel), notation de fin de ticket',
+    'Modmail : conversations en messages privés avec le staff, par catégorie',
+  ],
   defaultEnabled: false,
   // DirectMessages + partiels Channel/Message : le modmail repose sur les messages privés adressés au bot.
   intents: [GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.DirectMessages],

@@ -25,6 +25,13 @@ module.exports = {
   label: 'Statistiques',
   emoji: '📊',
   description: 'Collecte d’activité par serveur, rétroactivité et dashboard analytique.',
+  // Fonctionnalités présentées sur la page « Fonctionnalités » du panel web.
+  features: [
+    'Collecte de l’activité par serveur : messages, vocal, arrivées et départs, invitations',
+    'Rétroactivité : reconstitution de l’historique à l’arrivée du bot',
+    'Dashboard web : courbes, classements, fiche détaillée par membre',
+    'Rapports hebdomadaires automatiques et suivi des invitations',
+  ],
 
   intents: [
     GatewayIntentBits.Guilds,

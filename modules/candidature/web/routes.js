@@ -2,14 +2,13 @@
 
 const path = require('node:path');
 const express = require('express');
-const { ChannelType } = require('discord.js');
+const { ChannelType, PermissionFlagsBits } = require('discord.js');
 const { HttpError, wrap, isSnowflake, avatarUrl, hexColor, imageUrl, textChannelId } = require('../../../src/web/helpers');
 const { guildAccess, memberOf } = require('../../permissions/lib/webAccess');
 const { STATUSES, RECRUITER_STATUSES, FINAL_STATUSES, isFinal, statusLabel } = require('../lib/statuses');
-const { normalizeQuestions, MAX_QUESTIONS } = require('../lib/form');
-const { normalizeCriteria } = require('../lib/criteria');
 const { isAdmin } = require('../lib/guard');
-const { publishPanel, setStatus, changeCategory, deleteChannel, sendLog } = require('../lib/lifecycle');
+const { DEFAULT_INVITE_HOURS, MAX_INVITE_HOURS } = require('../lib/acceptance');
+const { publishPanel, refreshPanel, unpublishPanel, setStatus, changeCategory, deleteChannel, sendLog } = require('../lib/lifecycle');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
 // Rendu façon Discord partagé avec les transcriptions de tickets (mise en forme Markdown, bulles de messages).
@@ -95,6 +94,7 @@ module.exports = function registerWeb(router, ctx) {
   function categoryJson(c) {
     return {
       id: c.id,
+      panelId: c.panel_id ? String(c.panel_id) : null,
       label: c.label,
       emoji: c.emoji,
       buttonStyle: c.button_style,
@@ -104,13 +104,11 @@ module.exports = function registerWeb(router, ctx) {
       notifyRoleIds: c.notify_role_ids,
       maxOpen: c.max_open,
       cooldownDays: c.cooldown_days,
-      acceptRoleId: c.accept_role_id ? String(c.accept_role_id) : null,
+      acceptRoleIds: c.accept_role_ids,
+      acceptMessage: c.accept_message,
+      acceptInviteGuildId: c.accept_invite_guild_id ? String(c.accept_invite_guild_id) : null,
+      acceptInviteHours: c.accept_invite_hours,
       channelNamePattern: c.channel_name_pattern,
-      autoCheck: Boolean(Number(c.auto_check)),
-      criteria: c.criteria,
-      formEnabled: Boolean(Number(c.form_enabled)),
-      formTitle: c.form_title,
-      formQuestions: c.form_questions,
       openedTitle: c.opened_title,
       openedDescription: c.opened_description,
       openedColor: c.opened_color,
@@ -138,12 +136,11 @@ module.exports = function registerWeb(router, ctx) {
       closedAt: c.closed_at,
       channelId: String(c.channel_id),
       channelExists: !Number(c.channel_deleted) && guild.channels.cache.has(String(c.channel_id)),
-      failures: c.check_failures,
     };
   }
 
   async function stateJson(req, guild) {
-    const [settings, categories, active] = await Promise.all([candidatures.settings(guild.id), candidatures.listCategories(guild.id), candidatures.listActive(guild.id)]);
+    const [settings, panels, categories, active] = await Promise.all([candidatures.settings(guild.id), candidatures.listPanels(guild.id), candidatures.listCategories(guild.id), candidatures.listActive(guild.id)]);
     const viewer = await viewerOf(req, guild, categories);
     const byId = new Map(categories.map((c) => [String(c.id), c]));
     return {
@@ -151,13 +148,28 @@ module.exports = function registerWeb(router, ctx) {
       viewerAdmin: viewer.admin,
       statuses: Object.entries(STATUSES).map(([key, def]) => ({ key, label: def.label, emoji: def.emoji, final: def.final, recruiter: RECRUITER_STATUSES.includes(key) })),
       settings,
+      // Un panel = un message dans un salon, avec ses catégories (boutons ou options), comme les panels de tickets.
+      panels: panels.map((p) => ({
+        id: String(p.id),
+        channelId: p.channel_id ? String(p.channel_id) : null,
+        messageId: p.message_id ? String(p.message_id) : null,
+        style: p.style,
+        title: p.title,
+        description: p.description,
+        color: p.color,
+        footer: p.footer,
+        image: p.image,
+        thumbnail: p.thumbnail,
+        categories: categories.filter((c) => String(c.panel_id) === String(p.id)).map(categoryJson),
+      })),
       categories: categories.map(categoryJson),
       // Un bloc par catégorie visible (même vide), puis les candidatures en cours de ces catégories.
       visibleCategoryIds: [...viewer.categoryIds].map(Number),
       candidatures: active.filter((c) => canSee(viewer, c)).map((c) => candidatureJson(guild, c, byId)),
-      maxQuestions: MAX_QUESTIONS,
       textChannels: [...guild.channels.cache.values()].filter((c) => TEXT_TYPES.has(c.type)).sort((a, b) => a.position - b.position).map((c) => ({ id: c.id, name: c.name })),
       discordCategories: [...guild.channels.cache.values()].filter((c) => c.type === ChannelType.GuildCategory).sort((a, b) => a.position - b.position).map((c) => ({ id: c.id, name: c.name })),
+      inviteGuilds: await inviteGuildsOf(req),
+      inviteHours: { default: DEFAULT_INVITE_HOURS, max: MAX_INVITE_HOURS },
       roles: [...guild.roles.cache.values()].filter((r) => r.id !== guild.id && !r.managed).sort((a, b) => b.position - a.position).map((r) => ({ id: r.id, name: r.name, color: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : null })),
     };
   }
@@ -185,6 +197,20 @@ module.exports = function registerWeb(router, ctx) {
       if (channel) out.channels[id] = { name: channel.name };
     }
     return out;
+  }
+
+  /** Serveurs du bot où ce compte peut faire générer des invitations : propriétaire du bot, ou « Gérer le serveur ». */
+  async function inviteGuildsOf(req) {
+    const userId = req.session.user.id;
+    const owner = ctx.config.owners.has(userId);
+    const guilds = await Promise.all(
+      [...ctx.client.guilds.cache.values()].map(async (g) => {
+        if (owner) return g;
+        const member = await memberOf(g, userId);
+        return member && (g.ownerId === userId || member.permissions.has(PermissionFlagsBits.ManageGuild)) ? g : null;
+      }),
+    );
+    return guilds.filter(Boolean).map((g) => ({ id: g.id, name: g.name })).sort((a, b) => a.name.localeCompare(b.name));
   }
 
   function logWeb(req, guild, text) {
@@ -228,34 +254,70 @@ module.exports = function registerWeb(router, ctx) {
     }),
   );
 
+  // ── Panels ───────────────────────────────────────────────────────────────
+
+  async function panelOf(guild, id) {
+    const panel = await candidatures.getPanel(id);
+    if (!panel || String(panel.guild_id) !== guild.id) throw new HttpError(404, 'Panel introuvable');
+    return panel;
+  }
+
   router.post(
-    '/api/panel',
+    '/api/panels',
     wrap(async (req, res) => {
       const guild = await access.guild(req, 'manage-settings');
-      const body = req.body ?? {};
-      const patch = {};
-      if ('style' in body) patch.panel_style = body.style === 'select' ? 'select' : 'buttons';
-      if ('title' in body) patch.panel_title = body.title ? String(body.title).slice(0, 256) : null;
-      if ('description' in body) patch.panel_description = body.description ? String(body.description).slice(0, 4096) : null;
-      if ('color' in body) patch.panel_color = hexColor(body.color);
-      if ('footer' in body) patch.panel_footer = body.footer ? String(body.footer).slice(0, 2048) : null;
-      if ('image' in body) patch.panel_image = imageUrl(body.image, 'Image');
-      if ('thumbnail' in body) patch.panel_thumbnail = imageUrl(body.thumbnail, 'Vignette');
-      await candidatures.updateSettings(guild.id, patch);
-      ctx.services.refreshPanel(guild).catch(() => {});
+      const panel = await candidatures.createPanel(guild.id);
+      await logWeb(req, guild, `panel de candidatures #${panel.id} créé`);
       res.json(await stateJson(req, guild));
     }),
   );
 
   router.post(
-    '/api/panel/publish',
+    '/api/panels/:id',
     wrap(async (req, res) => {
       const guild = await access.guild(req, 'manage-settings');
+      const panel = await panelOf(guild, req.params.id);
+      const body = req.body ?? {};
+      const patch = {};
+      if ('style' in body) patch.style = body.style === 'select' ? 'select' : 'buttons';
+      if ('title' in body) patch.title = body.title ? String(body.title).slice(0, 256) : null;
+      if ('description' in body) patch.description = body.description ? String(body.description).slice(0, 4096) : null;
+      if ('color' in body) patch.color = hexColor(body.color);
+      if ('footer' in body) patch.footer = body.footer ? String(body.footer).slice(0, 2048) : null;
+      if ('image' in body) patch.image = imageUrl(body.image, 'Image');
+      if ('thumbnail' in body) patch.thumbnail = imageUrl(body.thumbnail, 'Vignette');
+      await candidatures.updatePanel(panel.id, patch);
+      await logWeb(req, guild, `panel de candidatures #${panel.id} modifié`);
+      refreshPanel(ctx, panel.id).catch(() => {});
+      res.json(await stateJson(req, guild));
+    }),
+  );
+
+  router.post(
+    '/api/panels/:id/publish',
+    wrap(async (req, res) => {
+      const guild = await access.guild(req, 'manage-settings');
+      const panel = await panelOf(guild, req.params.id);
       const channelId = textChannelId(guild, req.body?.channelId);
       if (!channelId) throw new HttpError(400, 'Choisis un salon.');
-      const result = await publishPanel(ctx, guild, guild.channels.cache.get(channelId)).catch((err) => ({ error: err.message }));
+      const result = await publishPanel(ctx, guild, panel, guild.channels.cache.get(channelId)).catch((err) => ({ error: err.message }));
       if (result.error) throw new HttpError(400, result.error);
-      await logWeb(req, guild, `panel de candidatures publié dans <#${channelId}>`);
+      await logWeb(req, guild, `panel de candidatures #${panel.id} publié dans <#${channelId}>`);
+      res.json(await stateJson(req, guild));
+    }),
+  );
+
+  router.delete(
+    '/api/panels/:id',
+    wrap(async (req, res) => {
+      const guild = await access.guild(req, 'manage-settings');
+      const panel = await panelOf(guild, req.params.id);
+      for (const category of await candidatures.listPanelCategories(panel.id)) {
+        if ((await candidatures.activeCountForCategory(category.id)) > 0) throw new HttpError(409, `Des candidatures sont encore en cours dans « ${category.label} » : clôture-les ou déplace-les d’abord.`);
+      }
+      await unpublishPanel(ctx, panel);
+      await candidatures.deletePanel(panel.id);
+      await logWeb(req, guild, `panel de candidatures #${panel.id} supprimé`);
       res.json(await stateJson(req, guild));
     }),
   );
@@ -263,11 +325,13 @@ module.exports = function registerWeb(router, ctx) {
   // ── Catégories ───────────────────────────────────────────────────────────
 
   router.post(
-    '/api/categories',
+    '/api/panels/:id/categories',
     wrap(async (req, res) => {
       const guild = await access.guild(req, 'manage-settings');
+      const panel = await panelOf(guild, req.params.id);
       const label = String(req.body?.label ?? 'Nouvelle catégorie').trim().slice(0, 80) || 'Nouvelle catégorie';
-      await candidatures.createCategory(guild.id, label);
+      await candidatures.createCategory(guild.id, panel.id, label);
+      refreshPanel(ctx, panel.id).catch(() => {});
       res.json(await stateJson(req, guild));
     }),
   );
@@ -290,7 +354,6 @@ module.exports = function registerWeb(router, ctx) {
       text('emoji', 'emoji', 64);
       text('selectDescription', 'select_description', 100);
       text('channelNamePattern', 'channel_name_pattern', 100);
-      text('formTitle', 'form_title', 45);
       text('openedTitle', 'opened_title', 256);
       text('openedDescription', 'opened_description', 4096);
       text('openedFooter', 'opened_footer', 2048);
@@ -302,23 +365,25 @@ module.exports = function registerWeb(router, ctx) {
       }
       if ('recruiterRoleIds' in body) patch.recruiter_role_ids = roleIds(body.recruiterRoleIds).filter((id) => guild.roles.cache.has(id));
       if ('notifyRoleIds' in body) patch.notify_role_ids = roleIds(body.notifyRoleIds).filter((id) => guild.roles.cache.has(id));
-      if ('acceptRoleId' in body) {
-        const id = body.acceptRoleId ? String(body.acceptRoleId) : null;
-        if (id && !guild.roles.cache.has(id)) throw new HttpError(400, 'Rôle d’acceptation introuvable.');
-        patch.accept_role_id = id;
+      if ('acceptRoleIds' in body) patch.accept_role_ids = roleIds(body.acceptRoleIds).filter((id) => guild.roles.cache.has(id));
+      text('acceptMessage', 'accept_message', 1500);
+      if ('acceptInviteGuildId' in body) {
+        const id = body.acceptInviteGuildId ? String(body.acceptInviteGuildId) : null;
+        // Seul un serveur que ce compte administre peut recevoir des invitations générées par le bot.
+        if (id && id !== String(category.accept_invite_guild_id ?? '') && !(await inviteGuildsOf(req)).some((g) => g.id === id)) {
+          throw new HttpError(403, 'Serveur d’invitation non autorisé : il faut y être administrateur (ou avoir « Gérer le serveur ») et que le bot y soit.');
+        }
+        patch.accept_invite_guild_id = id;
       }
+      if ('acceptInviteHours' in body) patch.accept_invite_hours = intOrNull(body.acceptInviteHours, 'Validité de l’invitation (heures)', MAX_INVITE_HOURS);
       if ('maxOpen' in body) patch.max_open = intOrNull(body.maxOpen, 'Maximum de candidatures en cours', 1000);
       if ('cooldownDays' in body) patch.cooldown_days = intOrNull(body.cooldownDays, 'Délai de représentation (jours)');
-      if ('autoCheck' in body) patch.auto_check = body.autoCheck ? 1 : 0;
-      if ('criteria' in body) patch.criteria = normalizeCriteria(body.criteria);
-      if ('formEnabled' in body) patch.form_enabled = body.formEnabled ? 1 : 0;
-      if ('formQuestions' in body) patch.form_questions = normalizeQuestions(body.formQuestions);
       if ('openedColor' in body) patch.opened_color = hexColor(body.openedColor);
       if ('openedImage' in body) patch.opened_image = imageUrl(body.openedImage, 'Image');
       if ('openedThumbnail' in body) patch.opened_thumbnail = imageUrl(body.openedThumbnail, 'Vignette');
       await candidatures.updateCategory(category.id, patch);
       await logWeb(req, guild, `catégorie de candidature **${patch.label ?? category.label}** modifiée`);
-      ctx.services.refreshPanel(guild).catch(() => {});
+      refreshPanel(ctx, category.panel_id).catch(() => {});
       res.json(await stateJson(req, guild));
     }),
   );
@@ -331,7 +396,7 @@ module.exports = function registerWeb(router, ctx) {
       if ((await candidatures.activeCountForCategory(category.id)) > 0) throw new HttpError(409, 'Des candidatures sont encore en cours dans cette catégorie : clôture-les ou déplace-les d’abord.');
       await candidatures.deleteCategory(category.id);
       await logWeb(req, guild, `catégorie de candidature **${category.label}** supprimée`);
-      ctx.services.refreshPanel(guild).catch(() => {});
+      refreshPanel(ctx, category.panel_id).catch(() => {});
       res.json(await stateJson(req, guild));
     }),
   );
@@ -379,7 +444,6 @@ module.exports = function registerWeb(router, ctx) {
       const byId = new Map(categories.map((c) => [String(c.id), c]));
       res.json({
         candidature: candidatureJson(guild, candidature, byId),
-        formAnswers: candidature.form_answers,
         events: events.map((e) => ({ id: e.id, kind: e.kind, status: e.status, statusLabel: e.status ? statusLabel(e.status) : null, actor: e.actor_id ? person(guild, e.actor_id) : null, detail: e.detail, at: e.created_at })),
         messages: messages.map((m) => ({
           id: m.id,

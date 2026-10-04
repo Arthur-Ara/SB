@@ -92,7 +92,7 @@ modules/
   support/               module Support Automatique (désactivé par défaut)
   servermanager/         module Server Manager : journal, /rollback, sauvegardes, panel web (désactivé par défaut)
   rolemenu/              module RôleMenu : menus de rôles + conditions d'accès (désactivé par défaut)
-  candidature/           module Candidatures : statuts, recruteurs, contrôle des critères (désactivé par défaut)
+  candidature/           module Candidatures : panels, statuts, recruteurs, transcriptions (désactivé par défaut)
 ```
 
 Un module peut consulter en lecture les services d'un autre via `ctx.modules.services('nom-du-module')` (renvoie
@@ -753,9 +753,10 @@ pour prévenir le staff que la demande vient du support automatique. **Configura
 
 ## Module Candidatures
 
-Dépôt de candidatures par **catégorie** (Modérateur, Animateur…), sur le modèle des tickets : un panel publié sur
-Discord (boutons ou menu déroulant) ouvre un **salon privé** où le candidat rédige sa candidature (texte, captures,
-fichiers), visible des seuls **recruteurs** de la catégorie. Chaque candidature suit un **statut** :
+Dépôt de candidatures, sur le modèle des tickets : un ou plusieurs **panels**, chacun publié dans **son salon** avec
+ses **catégories** de candidature (Modérateur, Animateur…) en boutons ou en menu déroulant. Un clic ouvre un **salon
+privé** où le candidat rédige sa candidature (texte, captures, fichiers), visible des seuls **recruteurs** de la
+catégorie. Chaque candidature suit un **statut** :
 
 `📝 En rédaction` › `⏳ En attente` › `👀 Prise en compte` › `⚙️ En traitement` › `🎤 Attente entretien` › `✅ Acceptée` / `❌ Refusée`
 (+ `↩️ Retirée` si le candidat se retire ou si le salon est supprimé à la main).
@@ -765,40 +766,39 @@ fichiers), visible des seuls **recruteurs** de la catégorie. Chaque candidature
   candidatures, leur statut sur une frise, le motif d'une décision et, après un refus, la date à partir de laquelle
   il peut se représenter. Chaque changement de statut lui est aussi envoyé en message privé.
 - **Recruteurs** : menu de statut dans le salon (ou `/candidature statut`, ou le panel web) ; un refus demande un
-  **motif** (obligatoire si l'admin l'exige), une acceptation une précision facultative et donne le rôle
-  d'acceptation configuré. **🔀 Changer de catégorie** (ou `/candidature categorie`, ou le panel web) corrige une
-  erreur du candidat : le salon change de catégorie Discord et de recruteurs, le modèle de la nouvelle catégorie est
-  republié. `/candidature historique membre:` liste **toutes les candidatures d'un membre**, leur issue, le motif et
-  qui a décidé (ou « automatique »). Une fois clôturée, le salon est verrouillé et peut être supprimé (bouton).
+  **motif** (obligatoire si l'admin l'exige), une acceptation une précision facultative. **🔀 Changer de catégorie**
+  (ou `/candidature categorie`, ou le panel web) corrige une erreur du candidat : le salon change de catégorie Discord
+  et de recruteurs, le modèle de la nouvelle catégorie est republié. `/candidature historique membre:` liste **toutes
+  les candidatures d'un membre**, leur issue, le motif et qui a décidé. Une fois clôturée, le salon est verrouillé et
+  peut être supprimé (bouton).
+- **Acceptation** (par catégorie) : **plusieurs rôles** donnés au candidat, **message privé** libre (lien d'un
+  Discord, consignes…) et, en option, une **invitation à usage unique** vers un autre serveur où se trouve le bot,
+  générée pour ce candidat (validité 24 h par défaut, 7 jours max) et envoyée uniquement à lui — placeholder
+  `{invite}`, sinon ajoutée à la fin du message. Discord ne permet pas de réserver une invitation à un compte précis :
+  l'usage unique, la courte validité et l'envoi en privé en limitent l'usage. Messages privés fermés : le message est
+  posté dans le salon privé de la candidature. Seuls les serveurs où l'admin a « Gérer le serveur » sont proposés.
 - **Transcription** : tous les messages de chaque candidature (candidat, recruteurs, bot, modifications, copies des
   pièces jointes) sont enregistrés dès l'ouverture ; la page `/m/candidature/transcript?candidature=<id>` les affiche
-  façon Discord avec les réponses au formulaire, le motif, et l'historique complet (ouverture, envoi, statuts,
-  changements de catégorie). Le lien est ajouté dans le salon à la clôture.
-- **Réglages (admins, panel web `/m/candidature/`)** : par catégorie — **modèle** (embed d'ouverture avec variables
-  `{user} {category} {number} {retry} {criteria}`…), catégorie Discord, rôles recruteurs / notifiés, rôle
-  d'acceptation, maximum de candidatures en cours, **délai de représentation** après un refus, formulaire
-  facultatif (5 questions, longueur min/max par question) ; pour le serveur — **refus motivé obligatoire ou non**,
-  **réponses automatiques** par statut (dans le salon, et en privé si coché), salon de journal, panel.
+  façon Discord avec le motif et l'historique complet (ouverture, envoi, statuts, changements de catégorie,
+  invitation). Le lien est ajouté dans le salon à la clôture.
 
-### Contrôle automatique des critères
+### Panel web (`/m/candidature/`)
 
-Activable par catégorie. Quand le candidat termine sa candidature, le bot vérifie aussitôt les critères définis par
-les admins ; en cas de non-respect, la candidature est **refusée automatiquement** avec la liste des éléments non
-respectés et le délai de représentation (s'il y en a un), dans le salon et en message privé. Les critères sont
-rappelés au candidat dans le message d'ouverture. Critères disponibles (vide = non contrôlé) :
+Même organisation que la page Tickets :
 
-| Critère | Vérification |
-| --- | --- |
-| Parties attendues | Le candidat écrit le nom de la partie en début de ligne (`Présentation : …`, `**Motivations**`, `## Disponibilités`) ; le texte qui suit, jusqu'à la partie suivante, lui est attribué. Par partie : obligatoire ou non, caractères min / max. |
-| Longueur totale | Caractères min / max de tout le texte du candidat (formulaire + messages). |
-| Questions du formulaire | Caractères min / max par question (aussi imposés par la fenêtre Discord). |
-| Messages, pièces jointes | Nombre minimum de messages / de fichiers envoyés dans le salon. |
-| Mots obligatoires / interdits | Sans tenir compte des accents ni de la casse (mots entiers pour les interdits). |
-| Profil | Ancienneté du compte Discord et sur le serveur, rôles requis / incompatibles. |
+- **⚙️ Réglages** : salon de journal, refus motivé obligatoire ou non, **réponses automatiques** par statut (postées
+  dans le salon, et en privé si coché).
+- **📨 Panels** : un bloc par panel (salon de publication, embed, boutons ou menu déroulant), avec ses catégories :
+  libellé, émoji, catégorie Discord des salons, limite de candidatures en cours, nom des salons, rôles recruteurs et
+  notifiés, délai de représentation après un refus, acceptation (rôles, message, invitation) et **modèle** (embed
+  d'ouverture, placeholders `{user} {username} {category} {number} {retry} {recruiters}`…).
+- **📬 Candidatures en cours** : un bloc par catégorie, changement de statut et de catégorie, liens salon et
+  transcription.
+- **🗂️ Historique** : filtres par candidat (ID, ou clic sur un nom), statut, catégorie ; synthèse des issues d'un
+  candidat.
 
-Le texte contrôlé est celui de la transcription (contenu final des messages modifiés), ce qui ne coûte aucune requête
-Discord : un seul appel en base au moment de l'envoi. Les fonctions de contrôle sont pures
-(`modules/candidature/lib/criteria.js`) et couvertes par `test/candidature.test.js`.
+`/candidature panel [panel] [salon]` publie un panel depuis Discord ; `/candidature config` renvoie le lien du panel
+web.
 
 ### Accès
 

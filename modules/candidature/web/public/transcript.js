@@ -1,4 +1,4 @@
-/* Transcription d'une candidature : en-tête (statut, motif, critères, historique), messages façon Discord, actions. */
+/* Transcription d'une candidature : en-tête (statut, motif, historique), messages façon Discord, actions. */
 (function () {
   'use strict';
 
@@ -15,6 +15,7 @@
     submitted: '📬 Candidature terminée par le candidat',
     category: '🔀 Catégorie modifiée',
     deleted: '🗑️ Salon supprimé',
+    invite: '🔗 Invitation à usage unique envoyée',
   };
 
   function showError(message) {
@@ -223,23 +224,12 @@
         ? el(
             'div',
             { class: 'transcript-meta' },
-            el('span', {}, 'Décision : ', el('strong', { text: c.statusBy ? c.statusBy.name : c.auto ? '🤖 contrôle automatique' : '—' })),
+            el('span', {}, 'Décision : ', el('strong', { text: c.statusBy ? c.statusBy.name : c.auto ? '🤖 automatique' : '—' })),
             c.closedAt ? el('span', { text: 'le ' + fmt.dateTime(c.closedAt) }) : null,
           )
         : null,
       c.reason ? el('div', { class: 'cand-reason-box' }, el('strong', { text: c.status === 'refused' ? 'Motif du refus' : 'Précision' }), el('div', { class: 'cand-reason', text: c.reason })) : null,
-      c.failures && c.failures.length && c.status !== 'refused'
-        ? el('div', { class: 'cand-reason-box' }, el('strong', { text: 'Contrôle automatique' }), el('ul', {}, c.failures.map(function (f) { return el('li', { text: f }); })))
-        : null,
       actionsEl(result),
-      result.formAnswers && result.formAnswers.length
-        ? el(
-            'details',
-            { class: 'transcript-answers', open: true },
-            el('summary', { text: '📝 Réponses au formulaire (' + result.formAnswers.length + ')' }),
-            result.formAnswers.map(function (a) { return el('div', { class: 'answer' }, el('strong', { text: a.question }), el('div', { text: a.answer })); }),
-          )
-        : null,
       eventsEl(result.events),
       el('div', { class: 'transcript-meta' }, el('a', { href: '/m/candidature/?guild=' + encodeURIComponent(result.guildId), text: '← Toutes les candidatures' })),
     );

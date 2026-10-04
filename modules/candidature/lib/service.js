@@ -1,8 +1,6 @@
 'use strict';
 
 const { FINAL_STATUSES, ACTIVE_STATUSES } = require('./statuses');
-const { normalizeCriteria } = require('./criteria');
-const { normalizeQuestions } = require('./form');
 
 function fromJson(value, fallback = []) {
   if (value === null || value === undefined) return fallback;
@@ -20,27 +18,23 @@ function mapCategory(row) {
     ...row,
     recruiter_role_ids: fromJson(row.recruiter_role_ids).map(String),
     notify_role_ids: fromJson(row.notify_role_ids).map(String),
-    form_questions: normalizeQuestions(fromJson(row.form_questions)),
-    criteria: normalizeCriteria(fromJson(row.criteria, {})),
+    accept_role_ids: fromJson(row.accept_role_ids).map(String),
   };
 }
 
 function mapCandidature(row) {
-  if (!row) return null;
-  return { ...row, form_answers: fromJson(row.form_answers), check_failures: fromJson(row.check_failures) };
+  return row ?? null;
 }
 
 /** Colonnes modifiables par `updateCategory` / `updateSettings` (jamais de nom de colonne venant de l'extérieur). */
 const CATEGORY_COLUMNS = new Set([
   'label', 'emoji', 'button_style', 'select_description', 'category_id', 'recruiter_role_ids', 'notify_role_ids', 'max_open', 'cooldown_days',
-  'accept_role_id', 'channel_name_pattern', 'auto_check', 'criteria', 'form_enabled', 'form_title', 'form_questions', 'opened_title',
-  'opened_description', 'opened_color', 'opened_footer', 'opened_image', 'opened_thumbnail', 'position',
+  'accept_role_ids', 'accept_message', 'accept_invite_guild_id', 'accept_invite_hours', 'channel_name_pattern', 'opened_title', 'opened_description', 'opened_color', 'opened_footer', 'opened_image',
+  'opened_thumbnail', 'position',
 ]);
-const SETTINGS_COLUMNS = new Set([
-  'log_channel_id', 'refusal_reason_required', 'auto_replies', 'panel_channel_id', 'panel_message_id', 'panel_style', 'panel_title',
-  'panel_description', 'panel_color', 'panel_footer', 'panel_image', 'panel_thumbnail',
-]);
-const JSON_COLUMNS = new Set(['recruiter_role_ids', 'notify_role_ids', 'criteria', 'form_questions', 'auto_replies']);
+const PANEL_COLUMNS = new Set(['channel_id', 'message_id', 'style', 'title', 'description', 'color', 'footer', 'image', 'thumbnail']);
+const SETTINGS_COLUMNS = new Set(['log_channel_id', 'refusal_reason_required', 'auto_replies']);
+const JSON_COLUMNS = new Set(['recruiter_role_ids', 'notify_role_ids', 'accept_role_ids', 'auto_replies']);
 
 function placeholders(list) {
   return list.map(() => '?').join(', ');
@@ -75,17 +69,6 @@ class CandidatureService {
       logChannelId: row?.log_channel_id ? String(row.log_channel_id) : null,
       refusalReasonRequired: row ? Boolean(Number(row.refusal_reason_required)) : true,
       autoReplies: fromJson(row?.auto_replies, {}) ?? {},
-      panel: {
-        channelId: row?.panel_channel_id ? String(row.panel_channel_id) : null,
-        messageId: row?.panel_message_id ? String(row.panel_message_id) : null,
-        style: row?.panel_style ?? 'buttons',
-        title: row?.panel_title ?? null,
-        description: row?.panel_description ?? null,
-        color: row?.panel_color ?? null,
-        footer: row?.panel_footer ?? null,
-        image: row?.panel_image ?? null,
-        thumbnail: row?.panel_thumbnail ?? null,
-      },
     };
     this.settingsCache.set(String(guildId), settings);
     return settings;
@@ -104,10 +87,47 @@ class CandidatureService {
     this.settingsCache.delete(String(guildId));
   }
 
+  // ── Panels (un message par salon, chacun avec ses catégories) ─────────────
+
+  async listPanels(guildId) {
+    return this.db.query('SELECT * FROM cand_panels WHERE guild_id = ? ORDER BY id ASC', [guildId]);
+  }
+
+  async getPanel(id) {
+    return this.db.one('SELECT * FROM cand_panels WHERE id = ?', [id]);
+  }
+
+  async createPanel(guildId) {
+    const result = await this.db.query('INSERT INTO cand_panels (guild_id, created_at) VALUES (?, ?)', [guildId, new Date()]);
+    return this.getPanel(result.insertId);
+  }
+
+  async updatePanel(id, patch) {
+    const entries = Object.entries(patch).filter(([key]) => PANEL_COLUMNS.has(key));
+    if (!entries.length) return;
+    await this.db.query(`UPDATE cand_panels SET ${entries.map(([key]) => `${key} = ?`).join(', ')} WHERE id = ?`, [...entries.map(([, value]) => value), id]);
+  }
+
+  /** Supprime un panel et ses catégories (les candidatures, closes, restent dans l'historique). */
+  async deletePanel(id) {
+    await this.db.query('DELETE FROM cand_categories WHERE panel_id = ?', [id]);
+    await this.db.query('DELETE FROM cand_panels WHERE id = ?', [id]);
+  }
+
+  /** Panels dont le message est publié dans ce salon. */
+  async panelsInChannel(channelId) {
+    return this.db.query('SELECT * FROM cand_panels WHERE channel_id = ?', [channelId]);
+  }
+
   // ── Catégories ────────────────────────────────────────────────────────────
 
   async listCategories(guildId) {
-    const rows = await this.db.query('SELECT * FROM cand_categories WHERE guild_id = ? ORDER BY position ASC, id ASC', [guildId]);
+    const rows = await this.db.query('SELECT * FROM cand_categories WHERE guild_id = ? ORDER BY panel_id ASC, position ASC, id ASC', [guildId]);
+    return rows.map(mapCategory);
+  }
+
+  async listPanelCategories(panelId) {
+    const rows = await this.db.query('SELECT * FROM cand_categories WHERE panel_id = ? ORDER BY position ASC, id ASC', [panelId]);
     return rows.map(mapCategory);
   }
 
@@ -115,9 +135,9 @@ class CandidatureService {
     return mapCategory(await this.db.one('SELECT * FROM cand_categories WHERE id = ?', [id]));
   }
 
-  async createCategory(guildId, label) {
-    const position = await this.db.one('SELECT COALESCE(MAX(position), 0) + 1 AS n FROM cand_categories WHERE guild_id = ?', [guildId]);
-    const result = await this.db.query('INSERT INTO cand_categories (guild_id, label, position, created_at) VALUES (?, ?, ?, ?)', [guildId, label, Number(position?.n ?? 1), new Date()]);
+  async createCategory(guildId, panelId, label) {
+    const position = await this.db.one('SELECT COALESCE(MAX(position), 0) + 1 AS n FROM cand_categories WHERE panel_id = ?', [panelId]);
+    const result = await this.db.query('INSERT INTO cand_categories (guild_id, panel_id, label, position, created_at) VALUES (?, ?, ?, ?, ?)', [guildId, panelId, label, Number(position?.n ?? 1), new Date()]);
     return this.getCategory(result.insertId);
   }
 
@@ -134,12 +154,12 @@ class CandidatureService {
 
   // ── Candidatures ──────────────────────────────────────────────────────────
 
-  async createCandidature({ guildId, categoryId, channelId, applicantId, formAnswers = null }) {
+  async createCandidature({ guildId, categoryId, channelId, applicantId }) {
     const now = new Date();
     const result = await this.db.query(
-      `INSERT INTO cand_candidatures (guild_id, category_id, channel_id, applicant_id, status, form_answers, status_at, created_at)
-       VALUES (?, ?, ?, ?, 'draft', ?, ?, ?)`,
-      [guildId, categoryId, channelId, applicantId, formAnswers?.length ? JSON.stringify(formAnswers) : null, now, now],
+      `INSERT INTO cand_candidatures (guild_id, category_id, channel_id, applicant_id, status, status_at, created_at)
+       VALUES (?, ?, ?, ?, 'draft', ?, ?)`,
+      [guildId, categoryId, channelId, applicantId, now, now],
     );
     this.channels.add(String(channelId));
     await this.addEvent(result.insertId, 'opened', { status: 'draft', actorId: applicantId });
@@ -222,10 +242,6 @@ class CandidatureService {
     await this.addEvent(id, 'status', { status, actorId: by, detail: reason });
   }
 
-  async setCheckFailures(id, failures) {
-    await this.db.query('UPDATE cand_candidatures SET check_failures = ? WHERE id = ?', [failures?.length ? JSON.stringify(failures) : null, id]);
-  }
-
   async setCategoryOf(id, categoryId, actorId, detail) {
     await this.db.query('UPDATE cand_candidatures SET category_id = ? WHERE id = ?', [categoryId, id]);
     await this.addEvent(id, 'category', { actorId, detail });
@@ -284,15 +300,10 @@ class CandidatureService {
     return rows.map((row) => ({ ...row, embeds: fromJson(row.embeds, null), attachments: fromJson(row.attachments, []) }));
   }
 
-  /** Textes et nombre de pièces jointes envoyés par le candidat (pour le contrôle des critères). */
-  async applicantContent(candidature) {
-    const rows = await this.listMessages(candidature.id);
-    const mine = rows.filter((row) => !Number(row.author_bot) && String(row.author_id) === String(candidature.applicant_id));
-    return {
-      messages: mine.map((row) => row.content).filter((text) => text && text.trim()),
-      attachments: mine.reduce((total, row) => total + (row.attachments?.length ?? 0), 0),
-      count: mine.length,
-    };
+  /** Nombre de messages écrits par le candidat dans son salon (une candidature vide ne peut pas être terminée). */
+  async applicantMessageCount(candidature) {
+    const row = await this.db.one('SELECT COUNT(*) AS n FROM cand_messages WHERE candidature_id = ? AND author_id = ? AND author_bot = 0', [candidature.id, candidature.applicant_id]);
+    return Number(row?.n ?? 0);
   }
 
   async saveAttachment({ messageRowId, name, contentType, size, buffer }) {

@@ -8,11 +8,12 @@
   var main = document.getElementById('main');
   var guildId = '';
   var data = null;
+  var expandedPanels = new Set();
   var expandedCategories = new Set();
   var historyFilters = { applicant: '', status: '', category: '', scope: 'all', page: 1 };
   var history = null;
 
-  var PLACEHOLDERS = '{user} {username} {category} {id} {number} {status} {reason} {retry} {recruiters} {server} {criteria}';
+  var PLACEHOLDERS = '{user} (mention) · {username} · {category} · {id} (#42) · {number} (0042) · {status} · {reason} · {retry} (délai de représentation) · {recruiters} · {server}';
 
   function showError(message) {
     var box = document.getElementById('error');
@@ -118,14 +119,6 @@
     return Number.isFinite(n) && n > 0 ? n : null;
   }
 
-  function listText(list) {
-    return (list || []).join('\n');
-  }
-
-  function textList(textarea) {
-    return textarea.value.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
-  }
-
   // ── Actions sur une candidature (statut, catégorie, salon) ───────────────────
   /**
    * Change le statut. Refus : motif demandé (obligatoire si l'admin l'exige) ; acceptation : précision facultative.
@@ -199,14 +192,14 @@
 
   // ── Indicateurs ─────────────────────────────────────────────────────────────
   function renderTiles() {
-    var counts = {};
-    data.candidatures.forEach(function (c) { counts[c.status] = (counts[c.status] || 0) + 1; });
-    var box = Core.clear(document.getElementById('tiles'));
-    box.append(tile('En cours', fmt.number(data.candidatures.length), 'candidatures visibles'));
-    ['draft', 'pending', 'acknowledged', 'processing', 'interview'].forEach(function (key) {
-      var s = statusOf(key);
-      box.append(tile(s.emoji + ' ' + s.label, fmt.number(counts[key] || 0)));
-    });
+    var count = function (key) { return data.candidatures.filter(function (c) { return c.status === key; }).length; };
+    Core.clear(document.getElementById('tiles')).append(
+      tile('Panels', fmt.number(data.panels.length)),
+      tile('Catégories', fmt.number(data.categories.length)),
+      tile('Candidatures en cours', fmt.number(data.candidatures.length), fmt.number(count('draft')) + ' en rédaction'),
+      tile('⏳ À prendre en compte', fmt.number(count('pending'))),
+      tile('🎤 En attente d’entretien', fmt.number(count('interview'))),
+    );
   }
 
   // ── Onglet « En cours » : un bloc par catégorie visible ────────────────────
@@ -214,7 +207,7 @@
     var container = Core.clear(document.getElementById('active-blocks'));
     var visible = data.categories.filter(function (c) { return data.visibleCategoryIds.map(String).indexOf(String(c.id)) !== -1; });
     if (!data.categories.length) {
-      container.append(el('div', { class: 'card empty', text: 'Aucune catégorie de candidature : crée-en une dans l’onglet « Catégories ».' }));
+      container.append(el('div', { class: 'card empty', text: 'Aucune catégorie de candidature : crée un panel et ses catégories dans l’onglet « Panels ».' }));
       return;
     }
     if (!visible.length) {
@@ -334,7 +327,7 @@
 
   function decidedBy(c) {
     if (c.statusBy) return personEl(c.statusBy);
-    if (c.auto) return el('span', { class: 'badge-status warn', text: '🤖 Automatique', title: 'Contrôle automatique des critères' });
+    if (c.auto) return el('span', { class: 'badge-status warn', text: '🤖 Automatique' });
     return el('span', { class: 'muted', text: '—' });
   }
 
@@ -377,7 +370,7 @@
           { label: 'Candidat', value: function (c) { return personEl(c.applicant, function () { openHistoryFor(c.applicant.id); }); } },
           { label: 'Catégorie', value: function (c) { return c.categoryLabel; } },
           { label: 'Issue', value: function (c) { return statusBadge(c.status); } },
-          { label: 'Motif / éléments non respectés', value: reasonCell },
+          { label: 'Motif', value: reasonCell },
           { label: 'Décidé par', value: decidedBy },
           { label: 'Ouverte', value: function (c) { return fmt.dateTime(c.createdAt); } },
           { label: 'Clôturée', value: function (c) { return c.closedAt ? fmt.dateTime(c.closedAt) : el('span', { class: 'muted', text: 'en cours' }); } },
@@ -400,9 +393,9 @@
     );
   }
 
-  // ── Onglet « Catégories » ──────────────────────────────────────────────────
+  // ── Onglet « Panels » : un panel = un message dans un salon, avec ses catégories ─
   function embedPreview(fields) {
-    if (!fields.title && !fields.description) return el('div', { class: 'embed-preview empty', text: 'Aucun modèle : le message par défaut sera utilisé.' });
+    if (!fields.title && !fields.description) return el('div', { class: 'embed-preview empty', text: 'Aucun aperçu (titre ou description requis).' });
     var box = el(
       'div',
       { class: 'embed-preview', style: 'border-left-color:' + (fields.color || '#5865F2') },
@@ -414,26 +407,24 @@
     return box;
   }
 
-  /** Formulaire d'embed (modèle d'ouverture, panel) avec aperçu ; `values()` renvoie les champs saisis. */
-  function embedForm(fields, emptyText) {
+  /** Champs d'un embed (titre, description, couleur, pied, image, vignette) avec aperçu ; `values()` les renvoie. */
+  function embedFields(fields, extraField) {
     var title = el('input', { type: 'text', value: fields.title || '', maxlength: '256' });
-    var description = el('textarea', { maxlength: '4096', rows: '5' }, fields.description || '');
+    var description = el('textarea', { maxlength: '4096', rows: '4' }, fields.description || '');
     var color = el('input', { type: 'color', value: fields.color || '#2b2d31' });
     var footer = el('input', { type: 'text', value: fields.footer || '', maxlength: '2048' });
     var image = el('input', { type: 'text', placeholder: 'https://…', value: fields.image || '' });
     var thumbnail = el('input', { type: 'text', placeholder: 'https://…', value: fields.thumbnail || '' });
     var preview = el('div', {});
     function update() {
-      var node = embedPreview({ title: title.value, description: description.value, color: color.value, footer: footer.value, image: image.value });
-      if (!title.value && !description.value && emptyText) node.textContent = emptyText;
-      Core.clear(preview).append(node);
+      Core.clear(preview).append(embedPreview({ title: title.value, description: description.value, color: color.value, footer: footer.value, image: image.value }));
     }
     [title, description, color, footer, image].forEach(function (input) { input.addEventListener('input', update); });
     update();
     var box = el(
       'div',
       { class: 'stack' },
-      el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Titre' }), title), el('label', { class: 'field' }, el('span', { text: 'Couleur' }), color)),
+      el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Titre' }), title), extraField || null, el('label', { class: 'field' }, el('span', { text: 'Couleur' }), color)),
       el('label', { class: 'field' }, el('span', { text: 'Description' }), description),
       el('label', { class: 'field field-grow' }, el('span', { text: 'Pied de page' }), footer),
       el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Image (URL)' }), image), el('label', { class: 'field field-grow' }, el('span', { text: 'Vignette (URL)' }), thumbnail)),
@@ -445,187 +436,129 @@
     return box;
   }
 
-  /** Éditeur d'une liste de lignes (questions du formulaire, parties attendues) : ajout, retrait, ordre. */
-  function rowsEditor(initial, makeRow, { addLabel, max, emptyText }) {
-    var items = initial.map(makeRow);
-    var list = el('div', { class: 'cand-rows' });
-    var addButton = el('button', { type: 'button', class: 'btn btn-small', text: addLabel });
-    function render() {
-      Core.clear(list);
-      if (!items.length) list.append(el('div', { class: 'empty', text: emptyText }));
-      items.forEach(function (item, index) {
-        list.append(
-          el(
-            'div',
-            { class: 'cand-row' },
-            item.node,
-            el(
-              'div',
-              { class: 'cand-row-actions' },
-              index > 0 ? el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '▲', title: 'Monter', onclick: function () { items.splice(index - 1, 0, items.splice(index, 1)[0]); render(); } }) : null,
-              index < items.length - 1 ? el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '▼', title: 'Descendre', onclick: function () { items.splice(index + 1, 0, items.splice(index, 1)[0]); render(); } }) : null,
-              el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '✕', title: 'Retirer', onclick: function () { items.splice(index, 1); render(); } }),
-            ),
-          ),
-        );
-      });
-      addButton.disabled = items.length >= max;
-    }
-    addButton.addEventListener('click', function () {
-      if (items.length >= max) return;
-      items.push(makeRow({}));
-      render();
+  function channelName(id) {
+    var found = data.textChannels.find(function (c) { return c.id === id; });
+    return found ? '#' + found.name : id;
+  }
+
+  function renderPublish(panel) {
+    var select = options(data.textChannels.map(function (c) { return { value: c.id, text: '#' + c.name }; }), panel.channelId);
+    var button = el('button', {
+      type: 'button',
+      class: 'btn btn-small',
+      text: panel.messageId ? 'Republier ici' : 'Publier',
+      onclick: function () {
+        button.disabled = true;
+        refresh(call('POST', '/panels/' + panel.id + '/publish' + query(), { channelId: select.value })).finally(function () { button.disabled = false; });
+      },
     });
-    render();
-    var box = el('div', { class: 'stack' }, list, el('div', { class: 'filters' }, addButton, el('span', { class: 'muted', text: max + ' au maximum' })));
-    box.values = function () { return items.map(function (item) { return item.value(); }); };
-    return box;
+    return el(
+      'div',
+      { class: 'filters' },
+      el('label', { class: 'field' }, el('span', { text: 'Salon du panel' }), select),
+      button,
+      el('span', { class: 'muted', text: panel.messageId ? 'Publié dans ' + channelName(panel.channelId) : 'Pas encore publié' }),
+    );
   }
 
-  function questionRow(q) {
-    var label = el('input', { type: 'text', maxlength: '45', placeholder: 'Question (45 caractères max)', value: q.label || '' });
-    var placeholder = el('input', { type: 'text', maxlength: '100', placeholder: 'Texte d’exemple (facultatif)', value: q.placeholder || '' });
-    var style = options([{ value: 'short', text: 'Réponse courte' }, { value: 'paragraph', text: 'Paragraphe' }], q.style || 'paragraph');
-    var required = el('input', { type: 'checkbox' });
-    required.checked = q.required !== false;
-    var minLength = numberInput(q.minLength, 4000, '0');
-    var maxLength = numberInput(q.maxLength, 4000, 'auto');
-    return {
-      node: el(
-        'div',
-        { class: 'stack' },
-        el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Question' }), label), el('label', { class: 'field' }, el('span', { text: 'Type' }), style)),
-        el(
-          'div',
-          { class: 'field-row' },
-          el('label', { class: 'field field-grow' }, el('span', { text: 'Exemple' }), placeholder),
-          el('label', { class: 'field' }, el('span', { text: 'Caractères min' }), minLength),
-          el('label', { class: 'field' }, el('span', { text: 'Caractères max' }), maxLength),
-          el('label', { class: 'check' }, required, 'Obligatoire'),
-        ),
-      ),
-      value: function () {
-        return { label: label.value.trim(), placeholder: placeholder.value.trim(), style: style.value, required: required.checked, minLength: intValue(minLength), maxLength: intValue(maxLength) };
+  function renderPanelEmbedForm(panel) {
+    var style = options([{ value: 'buttons', text: 'Boutons' }, { value: 'select', text: 'Sélecteur (menu déroulant)' }], panel.style);
+    var form = embedFields(panel, el('label', { class: 'field' }, el('span', { text: 'Style du panel' }), style));
+    var save = el('button', {
+      type: 'button',
+      class: 'btn btn-primary',
+      text: '💾 Enregistrer l’embed du panel',
+      onclick: function () {
+        save.disabled = true;
+        refresh(call('POST', '/panels/' + panel.id + query(), Object.assign({ style: style.value }, form.values()))).finally(function () { save.disabled = false; });
       },
-    };
+    });
+    return el('div', { class: 'stack' }, form, el('div', { class: 'filters' }, save));
   }
 
-  function sectionRow(s) {
-    var name = el('input', { type: 'text', maxlength: '60', placeholder: 'Nom de la partie (ex. Présentation)', value: s.name || '' });
-    var minChars = numberInput(s.minChars, 20000, '0');
-    var maxChars = numberInput(s.maxChars, 20000, '—');
-    var required = el('input', { type: 'checkbox' });
-    required.checked = s.required !== false;
-    return {
-      node: el(
-        'div',
-        { class: 'field-row' },
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Partie' }), name),
-        el('label', { class: 'field' }, el('span', { text: 'Caractères min' }), minChars),
-        el('label', { class: 'field' }, el('span', { text: 'Caractères max' }), maxChars),
-        el('label', { class: 'check' }, required, 'Obligatoire'),
-      ),
-      value: function () {
-        return { name: name.value.trim(), minChars: intValue(minChars), maxChars: intValue(maxChars), required: required.checked };
+  function renderCategoryCard(panel, category) {
+    var isOpen = expandedCategories.has(String(category.id));
+    var problems = [];
+    if (!category.categoryId) problems.push('catégorie Discord manquante');
+    if (!category.recruiterRoleIds.length) problems.push('aucun recruteur');
+    var head = el(
+      'div',
+      {
+        class: 'type-head',
+        onclick: function () {
+          if (isOpen) expandedCategories.delete(String(category.id));
+          else expandedCategories.add(String(category.id));
+          renderPanels();
+        },
       },
-    };
-  }
+      el('h4', { text: (isOpen ? '▾ ' : '▸ ') + (category.emoji ? category.emoji + ' ' : '') + category.label }),
+      el(
+        'span',
+        { class: 'section-actions' },
+        problems.length ? el('span', { class: 'badge-status warn', text: '⚠️ ' + problems.join(', ') }) : null,
+        el('span', { class: 'muted', text: panel.style === 'select' ? 'option' : 'bouton' }),
+      ),
+    );
+    var body = el('div', { class: 'type-body' });
+    body.hidden = !isOpen;
+    if (!isOpen) return el('div', { class: 'type-card' }, head, body);
 
-  function rolesPicker(selected) {
-    var list = (selected || []).slice();
-    var node = Core.rolePicker(data.roles, list);
-    node.values = function () { return list.slice(); };
-    return node;
-  }
-
-  function renderCategoryBody(category) {
-    // Général
     var label = el('input', { type: 'text', maxlength: '80', value: category.label });
     var emoji = el('input', { type: 'text', maxlength: '64', placeholder: '📨', value: category.emoji || '' });
-    var buttonStyle = options(
-      [{ value: 'primary', text: 'Bleu' }, { value: 'secondary', text: 'Gris' }, { value: 'success', text: 'Vert' }, { value: 'danger', text: 'Rouge' }],
-      category.buttonStyle || 'primary',
-    );
-    var selectDescription = el('input', { type: 'text', maxlength: '100', placeholder: 'Sous le libellé, si le panel est en menu déroulant', value: category.selectDescription || '' });
-    var discordCategory = options(data.discordCategories.map(function (c) { return { value: c.id, text: c.name }; }), category.categoryId, '(choisir une catégorie Discord)');
-    var namePattern = el('input', { type: 'text', maxlength: '100', placeholder: 'candidature-{number}-{username}', value: category.channelNamePattern || '' });
+    var styleField;
+    var styleInput;
+    if (panel.style === 'select') {
+      styleInput = el('input', { type: 'text', maxlength: '100', placeholder: 'Description de l’option', value: category.selectDescription || '' });
+      styleField = el('label', { class: 'field field-grow' }, el('span', { text: 'Description (sélecteur)' }), styleInput);
+    } else {
+      styleInput = options([{ value: 'primary', text: 'Bleu' }, { value: 'secondary', text: 'Gris' }, { value: 'success', text: 'Vert' }, { value: 'danger', text: 'Rouge' }], category.buttonStyle || 'primary');
+      styleField = el('label', { class: 'field' }, el('span', { text: 'Couleur du bouton' }), styleInput);
+    }
+    var discordCategory = options(data.discordCategories.map(function (c) { return { value: c.id, text: c.name }; }), category.categoryId, '(choisir une catégorie)');
     var maxOpen = numberInput(category.maxOpen, 1000, 'illimité');
+    var namePattern = el('input', { type: 'text', maxlength: '100', placeholder: 'candidature-{number}-{username}', value: category.channelNamePattern || '' });
     var cooldown = numberInput(category.cooldownDays, 36500, 'aucun');
-    var acceptRole = options(data.roles.map(function (r) { return { value: r.id, text: r.name }; }), category.acceptRoleId, '(aucun)');
-    var recruiters = rolesPicker(category.recruiterRoleIds);
-    var notify = rolesPicker(category.notifyRoleIds);
-
-    // Modèle d'ouverture
-    var template = embedForm(
-      { title: category.openedTitle, description: category.openedDescription, color: category.openedColor, footer: category.openedFooter, image: category.openedImage, thumbnail: category.openedThumbnail },
-      'Aucun modèle : un message par défaut invite le candidat à rédiger puis à cliquer sur « Terminer ».',
-    );
-
-    // Formulaire
-    var formEnabled = el('input', { type: 'checkbox' });
-    formEnabled.checked = category.formEnabled;
-    var formTitle = el('input', { type: 'text', maxlength: '45', placeholder: category.label, value: category.formTitle || '' });
-    var questions = rowsEditor(category.formQuestions || [], questionRow, { addLabel: '+ Question', max: data.maxQuestions, emptyText: 'Aucune question.' });
-
-    // Critères
-    var c = category.criteria || {};
-    var autoCheck = el('input', { type: 'checkbox' });
-    autoCheck.checked = category.autoCheck;
-    var minChars = numberInput(c.minChars, 100000);
-    var maxChars = numberInput(c.maxChars, 100000);
-    var minMessages = numberInput(c.minMessages, 1000);
-    var minAttachments = numberInput(c.minAttachments, 100);
-    var minAccountAge = numberInput(c.minAccountAgeDays, 36500);
-    var minMemberDays = numberInput(c.minMemberDays, 36500);
-    var keywords = el('textarea', { rows: '3', placeholder: 'Un mot ou une expression par ligne' }, listText(c.requiredKeywords));
-    var forbidden = el('textarea', { rows: '3', placeholder: 'Un mot par ligne' }, listText(c.forbiddenWords));
-    var requiredRoles = rolesPicker(c.requiredRoleIds);
-    var forbiddenRoles = rolesPicker(c.forbiddenRoleIds);
-    var sections = rowsEditor(c.sections || [], sectionRow, { addLabel: '+ Partie attendue', max: 20, emptyText: 'Aucune partie imposée.' });
+    var acceptRoles = (category.acceptRoleIds || []).slice();
+    var acceptMessage = el('textarea', { rows: '3', maxlength: '1500', placeholder: 'Ex. : Bienvenue dans l’équipe {username} ! Rejoins le Discord staff : {invite}' }, category.acceptMessage || '');
+    var guildChoices = data.inviteGuilds.map(function (g) { return { value: g.id, text: g.name }; });
+    if (category.acceptInviteGuildId && !data.inviteGuilds.some(function (g) { return g.id === category.acceptInviteGuildId; })) {
+      guildChoices.unshift({ value: category.acceptInviteGuildId, text: 'Serveur actuel (' + category.acceptInviteGuildId + ')' });
+    }
+    var inviteGuild = options(guildChoices, category.acceptInviteGuildId, '(aucune invitation)');
+    var inviteHours = numberInput(category.acceptInviteHours, data.inviteHours.max, String(data.inviteHours.default));
+    var recruiters = category.recruiterRoleIds.slice();
+    var notify = category.notifyRoleIds.slice();
+    var template = embedFields({ title: category.openedTitle, description: category.openedDescription, color: category.openedColor, footer: category.openedFooter, image: category.openedImage, thumbnail: category.openedThumbnail });
 
     var save = el('button', {
       type: 'button',
       class: 'btn btn-primary',
-      text: '💾 Enregistrer la catégorie',
+      text: '💾 Enregistrer',
       onclick: function () {
         var embed = template.values();
         var payload = {
           label: label.value.trim(),
           emoji: emoji.value.trim() || null,
-          buttonStyle: buttonStyle.value,
-          selectDescription: selectDescription.value.trim() || null,
           categoryId: discordCategory.value || null,
           channelNamePattern: namePattern.value.trim() || null,
           maxOpen: intValue(maxOpen),
           cooldownDays: intValue(cooldown),
-          acceptRoleId: acceptRole.value || null,
-          recruiterRoleIds: recruiters.values(),
-          notifyRoleIds: notify.values(),
+          acceptRoleIds: acceptRoles,
+          acceptMessage: acceptMessage.value.trim() || null,
+          acceptInviteGuildId: inviteGuild.value || null,
+          acceptInviteHours: intValue(inviteHours),
+          recruiterRoleIds: recruiters,
+          notifyRoleIds: notify,
           openedTitle: embed.title,
           openedDescription: embed.description,
           openedColor: embed.color,
           openedFooter: embed.footer,
           openedImage: embed.image,
           openedThumbnail: embed.thumbnail,
-          formEnabled: formEnabled.checked,
-          formTitle: formTitle.value.trim() || null,
-          formQuestions: questions.values(),
-          autoCheck: autoCheck.checked,
-          criteria: {
-            minChars: intValue(minChars),
-            maxChars: intValue(maxChars),
-            minMessages: intValue(minMessages),
-            minAttachments: intValue(minAttachments),
-            minAccountAgeDays: intValue(minAccountAge),
-            minMemberDays: intValue(minMemberDays),
-            requiredKeywords: textList(keywords),
-            forbiddenWords: textList(forbidden),
-            requiredRoleIds: requiredRoles.values(),
-            forbiddenRoleIds: forbiddenRoles.values(),
-            sections: sections.values(),
-          },
         };
-        if (!payload.label) return showError('Le nom de la catégorie est obligatoire.');
+        if (panel.style === 'select') payload.selectDescription = styleInput.value.trim() || null;
+        else payload.buttonStyle = styleInput.value;
+        if (!payload.label) return showError('Le libellé de la catégorie est obligatoire.');
         save.disabled = true;
         refresh(call('POST', '/categories/' + category.id + query(), payload)).finally(function () { save.disabled = false; });
       },
@@ -633,7 +566,7 @@
     var remove = el('button', {
       type: 'button',
       class: 'btn btn-danger btn-small',
-      text: 'Supprimer la catégorie',
+      text: 'Supprimer cette catégorie',
       onclick: function () {
         Core.confirm('Supprimer la catégorie « ' + category.label + ' » ? Les candidatures clôturées restent dans l’historique.').then(function (ok) {
           if (ok) refresh(call('DELETE', '/categories/' + category.id + query()));
@@ -641,98 +574,88 @@
       },
     });
 
-    return el(
-      'div',
-      { class: 'type-body stack' },
-      el('h4', { class: 'section-title', text: '⚙️ Général' }),
+    body.append(
+      el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Libellé' }), label), el('label', { class: 'field' }, el('span', { text: 'Émoji' }), emoji), styleField),
       el('div', { class: 'field-row' },
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Nom (bouton du panel)' }), label),
-        el('label', { class: 'field' }, el('span', { text: 'Émoji' }), emoji),
-        el('label', { class: 'field' }, el('span', { text: 'Couleur du bouton' }), buttonStyle),
+        el('label', { class: 'field' }, el('span', { text: 'Catégorie Discord des salons' }), discordCategory),
+        el('label', { class: 'field' }, el('span', { text: 'Limite de candidatures en cours' }), maxOpen),
       ),
-      el('label', { class: 'field field-grow' }, el('span', { text: 'Description (menu déroulant)' }), selectDescription),
+      el('label', { class: 'field field-grow' }, el('span', { text: 'Nom du salon' }), namePattern),
+      el('p', { class: 'muted', text: 'Placeholders : {number} (0042) · {username} · {type} (libellé de la catégorie). Par défaut : candidature-{number}-{username}.' }),
+      el('h4', { class: 'section-title', text: 'Rôle(s) recruteur — voient les salons, changent le statut et la catégorie' }),
+      Core.rolePicker(data.roles, recruiters),
+      el('h4', { class: 'section-title', text: 'Rôle(s) notifié(s) — mentionnés à l’ouverture et à l’envoi (vide = les recruteurs)' }),
+      Core.rolePicker(data.roles, notify),
+      el('h4', { class: 'section-title', text: 'Refus' }),
+      el('div', { class: 'field-row' }, el('label', { class: 'field' }, el('span', { text: 'Délai avant de se représenter après un refus (jours)' }), cooldown)),
+      el('h4', { class: 'section-title', text: 'Acceptation — rôle(s) donné(s) au candidat' }),
+      Core.rolePicker(data.roles, acceptRoles),
+      el('h4', { class: 'section-title', text: 'Acceptation — message privé au candidat' }),
+      el('p', { class: 'muted', text: 'Envoyé en message privé avec l’annonce de l’acceptation (dans le salon de la candidature si ses messages privés sont fermés) : lien d’un Discord, consignes… Mêmes placeholders que le modèle, plus {invite} (invitation générée ci-dessous).' }),
+      el('label', { class: 'field field-grow' }, el('span', { text: 'Message' }), acceptMessage),
       el('div', { class: 'field-row' },
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Catégorie Discord des salons (obligatoire)' }), discordCategory),
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Nom des salons ({number} {username} {type})' }), namePattern),
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Générer une invitation vers' }), inviteGuild),
+        el('label', { class: 'field' }, el('span', { text: 'Validité (heures, ' + data.inviteHours.max + ' max)' }), inviteHours),
       ),
-      el('div', { class: 'field-row' },
-        el('label', { class: 'field' }, el('span', { text: 'Candidatures en cours max' }), maxOpen),
-        el('label', { class: 'field' }, el('span', { text: 'Délai avant de se représenter après un refus (jours)' }), cooldown),
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Rôle donné à l’acceptation' }), acceptRole),
-      ),
-      el('label', { class: 'field' }, el('span', { text: '🧑‍💼 Rôles recruteurs (voient les salons, changent statut et catégorie)' }), recruiters),
-      el('details', { class: 'cand-details' },
-        el('summary', { text: '🔔 Rôles notifiés à l’ouverture et à l’envoi (par défaut : les recruteurs)' }),
-        notify,
-      ),
-
-      el('h4', { class: 'section-title', text: '🧾 Modèle d’ouverture' }),
-      el('p', { class: 'muted', text: 'Embed envoyé dans le salon à l’ouverture de la candidature. Variables : ' + PLACEHOLDERS + '. Avec le contrôle automatique, les critères sont ajoutés en dessous (ou là où tu places {criteria}).' }),
+      el('p', { class: 'muted', text: 'Le bot crée une invitation à une seule utilisation, propre à ce candidat et envoyée uniquement à lui. Discord ne permet pas de réserver une invitation à un compte précis : l’usage unique et la courte validité en limitent l’usage. Seuls les serveurs où tu as « Gérer le serveur » (et où le bot est présent) sont proposés ; le bot doit pouvoir y créer une invitation.' }),
+      el('h4', { class: 'section-title', text: 'Modèle : embed affiché à l’ouverture de la candidature' }),
+      el('p', { class: 'muted', text: 'Placeholders : ' + PLACEHOLDERS + '. Vide = message par défaut invitant le candidat à rédiger puis à cliquer sur « Terminer ma candidature ».' }),
       template,
-
-      el('h4', { class: 'section-title', text: '📝 Formulaire (facultatif)' }),
-      el('p', { class: 'muted', text: 'Fenêtre Discord affichée au clic, avant la création du salon (5 questions au plus). Les réponses sont publiées dans le salon et contrôlées avec les critères.' }),
-      el('div', { class: 'field-row' }, el('label', { class: 'check' }, formEnabled, 'Activer le formulaire'), el('label', { class: 'field field-grow' }, el('span', { text: 'Titre de la fenêtre' }), formTitle)),
-      questions,
-
-      el('h4', { class: 'section-title', text: '🤖 Contrôle automatique des critères' }),
-      el('p', { class: 'muted', text: 'Quand le candidat clique sur « Terminer ma candidature », le bot vérifie ces critères. En cas de non-respect, la candidature est refusée automatiquement avec la liste des éléments non respectés et le délai avant de pouvoir se représenter. Champ vide = non contrôlé.' }),
-      el('label', { class: 'check' }, autoCheck, 'Activer le contrôle automatique pour cette catégorie'),
-      el('div', { class: 'field-row' },
-        el('label', { class: 'field' }, el('span', { text: 'Caractères min (total)' }), minChars),
-        el('label', { class: 'field' }, el('span', { text: 'Caractères max (total)' }), maxChars),
-        el('label', { class: 'field' }, el('span', { text: 'Messages min' }), minMessages),
-        el('label', { class: 'field' }, el('span', { text: 'Pièces jointes min' }), minAttachments),
-      ),
-      el('div', { class: 'field-row' },
-        el('label', { class: 'field' }, el('span', { text: 'Âge du compte Discord min (jours)' }), minAccountAge),
-        el('label', { class: 'field' }, el('span', { text: 'Ancienneté sur le serveur min (jours)' }), minMemberDays),
-      ),
-      el('div', { class: 'stack' },
-        el('strong', { text: '📑 Parties attendues (caractères par partie)' }),
-        el('p', { class: 'muted', text: 'Le candidat écrit le nom de chaque partie en début de ligne (« Présentation : … », « **Motivations** », « ## Disponibilités ») ; le texte qui suit, jusqu’à la partie suivante, est compté pour elle.' }),
-        sections,
-      ),
-      el('div', { class: 'field-row' },
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Mots ou expressions obligatoires' }), keywords),
-        el('label', { class: 'field field-grow' }, el('span', { text: 'Mots interdits' }), forbidden),
-      ),
-      el('details', { class: 'cand-details' }, el('summary', { text: '✅ Rôles requis pour postuler' }), requiredRoles),
-      el('details', { class: 'cand-details' }, el('summary', { text: '⛔ Rôles incompatibles' }), forbiddenRoles),
-
       el('div', { class: 'filters' }, save, remove),
     );
+    return el('div', { class: 'type-card' }, head, body);
   }
 
-  function renderCategories() {
-    var list = Core.clear(document.getElementById('categories-list'));
-    if (!data.categories.length) list.append(el('div', { class: 'card empty', text: 'Aucune catégorie pour l’instant.' }));
-    data.categories.forEach(function (category) {
-      var isOpen = expandedCategories.has(String(category.id));
-      var problems = [];
-      if (!category.categoryId) problems.push('catégorie Discord manquante');
-      if (!category.recruiterRoleIds.length) problems.push('aucun recruteur');
-      var head = el(
+  function renderPanels() {
+    var list = Core.clear(document.getElementById('panels-list'));
+    if (!data.panels.length) list.append(el('div', { class: 'card empty', text: 'Aucun panel pour l’instant : crée-en un, ajoute-lui des catégories, puis publie-le dans un salon.' }));
+    data.panels.forEach(function (panel) {
+      var isOpen = expandedPanels.has(panel.id);
+      var summary = (panel.title || 'Sans titre') + ' · ' + panel.categories.length + ' catégorie(s)' + (panel.messageId ? ' · publié dans ' + channelName(panel.channelId) : ' · non publié');
+      var toggle = el(
         'div',
-        {
-          class: 'type-head',
-          onclick: function () {
-            if (isOpen) expandedCategories.delete(String(category.id));
-            else expandedCategories.add(String(category.id));
-            renderCategories();
-          },
-        },
-        el('h4', { text: (isOpen ? '▾ ' : '▸ ') + (category.emoji ? category.emoji + ' ' : '') + category.label }),
-        el(
-          'span',
-          { class: 'section-actions' },
-          category.autoCheck ? el('span', { class: 'badge-status on', text: '🤖 Contrôle auto' }) : null,
-          category.formEnabled ? el('span', { class: 'badge-status', text: '📝 Formulaire' }) : null,
-          category.cooldownDays ? el('span', { class: 'badge-status', text: '🔁 ' + category.cooldownDays + ' j' }) : null,
-          problems.length ? el('span', { class: 'badge-status warn', text: '⚠️ ' + problems.join(', ') }) : null,
-        ),
+        { class: 'panel-head', onclick: function () { if (isOpen) expandedPanels.delete(panel.id); else expandedPanels.add(panel.id); renderPanels(); } },
+        el('h3', { text: (isOpen ? '▾ ' : '▸ ') + 'Panel #' + panel.id }),
+        el('span', { class: 'muted', text: summary }),
       );
-      list.append(el('div', { class: 'card type-card' }, head, isOpen ? renderCategoryBody(category) : null));
+      var deletePanel = el('button', {
+        type: 'button',
+        class: 'btn btn-danger btn-small',
+        text: 'Supprimer ce panel',
+        onclick: function (event) {
+          event.stopPropagation();
+          Core.confirm('Supprimer ce panel et ses catégories ? Le message Discord associé sera aussi supprimé ; les candidatures clôturées restent dans l’historique.').then(function (ok) {
+            if (ok) refresh(call('DELETE', '/panels/' + panel.id + query()));
+          });
+        },
+      });
+      var body = null;
+      if (isOpen) {
+        var addCategory = el('button', {
+          type: 'button',
+          class: 'btn btn-small',
+          text: '+ Ajouter une catégorie (bouton/option)',
+          onclick: function () {
+            refresh(call('POST', '/panels/' + panel.id + '/categories' + query(), { label: 'Nouvelle catégorie' })).then(function (ok) {
+              var created = ok && data.panels.find(function (p) { return p.id === panel.id; });
+              if (created && created.categories.length) {
+                expandedCategories.add(String(created.categories[created.categories.length - 1].id));
+                renderPanels();
+              }
+            });
+          },
+        });
+        body = el(
+          'div',
+          { class: 'card-body' },
+          renderPublish(panel),
+          renderPanelEmbedForm(panel),
+          el('h4', { class: 'section-title', text: 'Catégories de candidature (boutons/options)' }),
+          panel.categories.length ? panel.categories.map(function (c) { return renderCategoryCard(panel, c); }) : el('div', { class: 'empty', text: 'Aucune catégorie pour l’instant.' }),
+          el('div', { class: 'section-actions' }, addCategory),
+        );
+      }
+      list.append(el('section', { class: 'card panel-block' }, el('div', { class: 'panel-head-row' }, toggle, deletePanel), body));
     });
   }
 
@@ -754,8 +677,8 @@
       el(
         'div',
         { class: 'stack' },
-        el('label', { class: 'field' }, el('span', { text: 'Salon de journal (ouvertures, statuts, changements de catégorie)' }), log),
-        el('label', { class: 'check' }, required, 'Le refus doit être motivé (raison obligatoire pour les recruteurs)'),
+        el('div', { class: 'filters' }, el('label', { class: 'field' }, el('span', { text: 'Salon de journal' }), log)),
+        el('div', { class: 'toggle-row' }, el('label', { class: 'check' }, required, 'Le refus doit être motivé (raison obligatoire pour les recruteurs)')),
         el('div', { class: 'filters' }, save),
       ),
     );
@@ -789,49 +712,8 @@
       el(
         'div',
         { class: 'stack' },
-        el('p', { class: 'muted', text: 'Message posté automatiquement dans le salon quand la candidature passe à ce statut (en plus de l’annonce du statut, toujours envoyée au candidat en privé). Le refus automatique du contrôle des critères utilise la réponse « Refusée ». Variables : ' + PLACEHOLDERS + '.' }),
+        el('p', { class: 'muted', text: 'Message posté automatiquement dans le salon quand la candidature passe à ce statut (l’annonce du statut est, elle, toujours envoyée au candidat en privé). Placeholders : ' + PLACEHOLDERS + '.' }),
         fields.map(function (f) { return f.node; }),
-        el('div', { class: 'filters' }, save),
-      ),
-    );
-  }
-
-  function renderPanel() {
-    var panel = data.settings.panel;
-    var style = options([{ value: 'buttons', text: 'Boutons (un par catégorie)' }, { value: 'select', text: 'Menu déroulant' }], panel.style);
-    var form = embedForm({ title: panel.title, description: panel.description, color: panel.color, footer: panel.footer, image: panel.image, thumbnail: panel.thumbnail }, 'Titre et texte par défaut.');
-    var save = el('button', {
-      type: 'button',
-      class: 'btn btn-primary',
-      text: '💾 Enregistrer le panel',
-      onclick: function () {
-        var payload = Object.assign({ style: style.value }, form.values());
-        save.disabled = true;
-        refresh(call('POST', '/panel' + query(), payload)).finally(function () { save.disabled = false; });
-      },
-    });
-    var channel = options(data.textChannels.map(function (c) { return { value: c.id, text: '#' + c.name }; }), panel.channelId);
-    var publish = el('button', {
-      type: 'button',
-      class: 'btn',
-      text: panel.messageId ? 'Republier ici' : 'Publier',
-      onclick: function () {
-        publish.disabled = true;
-        refresh(call('POST', '/panel/publish' + query(), { channelId: channel.value })).finally(function () { publish.disabled = false; });
-      },
-    });
-    var published = data.textChannels.find(function (c) { return c.id === panel.channelId; });
-    Core.clear(document.getElementById('panel-card')).append(
-      el(
-        'div',
-        { class: 'stack' },
-        el('div', { class: 'filters' },
-          el('label', { class: 'field' }, el('span', { text: 'Salon du panel' }), channel),
-          publish,
-          el('span', { class: 'muted', text: panel.messageId ? 'Publié dans #' + (published ? published.name : panel.channelId) : 'Pas encore publié' }),
-        ),
-        el('label', { class: 'field' }, el('span', { text: 'Présentation des catégories' }), style),
-        form,
         el('div', { class: 'filters' }, save),
       ),
     );
@@ -850,21 +732,21 @@
         if (b.dataset.tab === 'history' && !history) reloadHistory();
       });
     });
-    activateTab('active');
+    activateTab('settings');
   }
 
   function renderAll() {
     renderTiles();
-    renderActive();
-    renderCategories();
     renderSettings();
     renderReplies();
-    renderPanel();
+    renderPanels();
+    renderActive();
     if (history) reloadHistory();
   }
 
   async function loadGuild() {
     document.getElementById('content').hidden = true;
+    expandedPanels.clear();
     expandedCategories.clear();
     historyFilters = { applicant: '', status: '', category: '', scope: 'all', page: 1 };
     history = null;
@@ -891,11 +773,11 @@
         guildId = select.value;
         loadGuild();
       });
-      document.getElementById('add-category').addEventListener('click', function () {
-        refresh(call('POST', '/categories' + query(), { label: 'Nouvelle catégorie' })).then(function (ok) {
-          if (ok && data.categories.length) {
-            expandedCategories.add(String(data.categories[data.categories.length - 1].id));
-            renderCategories();
+      document.getElementById('add-panel').addEventListener('click', function () {
+        refresh(call('POST', '/panels' + query(), {})).then(function (ok) {
+          if (ok && data.panels.length) {
+            expandedPanels.add(data.panels[data.panels.length - 1].id);
+            renderPanels();
           }
         });
       });

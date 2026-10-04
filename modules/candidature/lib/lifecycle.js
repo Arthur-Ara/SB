@@ -7,9 +7,8 @@ const { webUrl } = require('../../../src/web/url');
 const { buildEmbed } = require('../../tickets/lib/embed');
 const { ticketChannelName } = require('../../tickets/lib/channelName');
 const { STATUSES, isFinal, statusLabel, timeline } = require('./statuses');
+const { createSingleUseInvite, giveAcceptRoles } = require('./acceptance');
 const { panelComponents, controls, categorySelect } = require('./components');
-const { answersEmbed } = require('./form');
-const { checkCriteria, hasCriteria, criteriaSummary } = require('./criteria');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const APPLICANT_PERMISSIONS = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'EmbedLinks'];
@@ -22,7 +21,7 @@ function transcriptUrl(ctx, candidature) {
   return webUrl(ctx.config, `m/candidature/transcript?candidature=${candidature.id}`);
 }
 
-/** Remplace {user} {username} {category} {id} {number} {status} {reason} {server} {retry} {recruiters} {criteria} dans un texte libre. */
+/** Remplace {user} {username} {category} {id} {number} {status} {reason} {server} {retry} {recruiters} ({invite} à l'acceptation) dans un texte libre. */
 function fill(text, values) {
   return String(text ?? '').replace(/\{(\w+)\}/g, (match, key) => (Object.hasOwn(values, key) ? String(values[key]) : match));
 }
@@ -73,44 +72,52 @@ async function sendLog(ctx, guild, lines) {
   }
 }
 
-// ── Panel ───────────────────────────────────────────────────────────────────
+// ── Panels ──────────────────────────────────────────────────────────────────
 
-function panelPayload(settings, categories) {
+function panelPayload(panel, categories) {
   const embed = buildEmbed({
-    title: settings.panel.title || 'Candidatures',
-    description: settings.panel.description || 'Choisis la candidature que tu souhaites déposer : un salon privé est créé pour la rédiger et suivre son avancement.',
-    color: settings.panel.color,
-    footer: settings.panel.footer,
-    image: settings.panel.image,
-    thumbnail: settings.panel.thumbnail,
+    title: panel.title || 'Candidatures',
+    description: panel.description || 'Choisis la candidature que tu souhaites déposer : un salon privé est créé pour la rédiger et suivre son avancement.',
+    color: panel.color,
+    footer: panel.footer,
+    image: panel.image,
+    thumbnail: panel.thumbnail,
   });
-  return { embeds: [embed], components: panelComponents(categories, settings.panel.style) };
+  return { embeds: [embed], components: panelComponents(categories, panel.style) };
 }
 
-/** Publie (ou republie) le panel : l'ancien message est supprimé, il n'y en a jamais qu'un par serveur. */
-async function publishPanel(ctx, guild, channel) {
+async function panelMessage(ctx, panel) {
+  if (!panel.channel_id || !panel.message_id) return null;
+  const channel = ctx.client.channels.cache.get(String(panel.channel_id));
+  return channel?.messages ? channel.messages.fetch(String(panel.message_id)).catch(() => null) : null;
+}
+
+/** Publie (ou republie) un panel dans un salon : son ancien message est supprimé, un panel n'a qu'un message. */
+async function publishPanel(ctx, guild, panel, channel) {
   const { candidatures } = ctx.services;
-  const [settings, categories] = await Promise.all([candidatures.settings(guild.id), candidatures.listCategories(guild.id)]);
-  if (!categories.length) return { error: 'Crée au moins une catégorie de candidature avant de publier le panel.' };
-  if (settings.panel.channelId && settings.panel.messageId) {
-    const old = ctx.client.channels.cache.get(settings.panel.channelId);
-    await old?.messages?.delete(settings.panel.messageId).catch(() => {});
-  }
-  const message = await channel.send(panelPayload(settings, categories));
-  await candidatures.updateSettings(guild.id, { panel_channel_id: channel.id, panel_message_id: message.id });
+  const categories = await candidatures.listPanelCategories(panel.id);
+  if (!categories.length) return { error: 'Ajoute au moins une catégorie de candidature à ce panel avant de le publier.' };
+  const old = await panelMessage(ctx, panel);
+  await old?.delete().catch(() => {});
+  const message = await channel.send(panelPayload(panel, categories));
+  await candidatures.updatePanel(panel.id, { channel_id: channel.id, message_id: message.id });
   return { message };
 }
 
-/** Met à jour le message du panel (catégories ajoutées, renommées, supprimées) sans le republier. */
-async function refreshPanel(ctx, guild) {
+/** Met à jour le message publié d'un panel (catégories ajoutées, renommées, supprimées) sans le republier. */
+async function refreshPanel(ctx, panelId) {
   const { candidatures } = ctx.services;
-  const settings = await candidatures.settings(guild.id);
-  if (!settings.panel.channelId || !settings.panel.messageId) return;
-  const categories = await candidatures.listCategories(guild.id);
-  const channel = ctx.client.channels.cache.get(settings.panel.channelId);
-  const message = channel?.messages ? await channel.messages.fetch(settings.panel.messageId).catch(() => null) : null;
+  const panel = await candidatures.getPanel(panelId);
+  const message = panel ? await panelMessage(ctx, panel) : null;
   if (!message) return;
-  await message.edit(categories.length ? panelPayload(settings, categories) : { components: [] }).catch(() => {});
+  const categories = await candidatures.listPanelCategories(panel.id);
+  await message.edit(categories.length ? panelPayload(panel, categories) : { components: [] }).catch(() => {});
+}
+
+/** Supprime le message publié d'un panel (avant la suppression du panel). */
+async function unpublishPanel(ctx, panel) {
+  const message = await panelMessage(ctx, panel);
+  await message?.delete().catch(() => {});
 }
 
 // ── Ouverture ───────────────────────────────────────────────────────────────
@@ -131,21 +138,10 @@ async function openProblem(ctx, { category, guild, user }) {
   return null;
 }
 
-/** Critères contrôlés automatiquement, à rappeler au candidat (vide si le contrôle est désactivé). */
-function criteriaText(category) {
-  if (!Number(category?.auto_check) || !hasCriteria(category.criteria, category.form_questions)) return '';
-  return criteriaSummary(category.criteria, category.form_questions);
-}
-
-/**
- * Message d'accueil : le « modèle » de la catégorie (embed configurable) ou, à défaut, un texte par défaut. Avec le
- * contrôle automatique, les critères vérifiés sont rappelés dans un champ (sauf si le modèle les place lui-même via
- * `{criteria}`).
- */
+/** Message d'accueil : le « modèle » de la catégorie (embed configurable) ou, à défaut, un texte par défaut. */
 function welcomeEmbed(guild, category, candidature) {
-  const criteria = criteriaText(category);
-  const values = placeholdersOf(guild, category, candidature, { criteria });
-  const embed =
+  const values = placeholdersOf(guild, category, candidature);
+  return (
     buildEmbed(
       { title: category.opened_title, description: category.opened_description, color: category.opened_color, footer: category.opened_footer, image: category.opened_image, thumbnail: category.opened_thumbnail },
       values,
@@ -157,16 +153,12 @@ function welcomeEmbed(guild, category, candidature) {
         color: category.opened_color,
       },
       values,
-    );
-  const usesPlaceholder = [category.opened_title, category.opened_description].some((text) => String(text ?? '').includes('{criteria}'));
-  if (criteria && !usesPlaceholder) {
-    embed.addFields({ name: '🤖 Contrôle automatique à l’envoi', value: `${criteria.slice(0, 940)}\n-# Une candidature qui ne respecte pas ces critères est refusée automatiquement.` });
-  }
-  return embed;
+    )
+  );
 }
 
-/** Ouvre une candidature : salon privé, enregistrement, message d'accueil (modèle + réponses du formulaire). */
-function openCandidature(ctx, { category, guild, user, answers = [] }) {
+/** Ouvre une candidature : salon privé, enregistrement, message d'accueil (modèle de la catégorie). */
+function openCandidature(ctx, { category, guild, user }) {
   return openLocks.run(`${category.id}:${user.id}`, async () => {
     const problem = await openProblem(ctx, { category, guild, user });
     if (problem) return { error: problem };
@@ -187,7 +179,7 @@ function openCandidature(ctx, { category, guild, user, answers = [] }) {
 
     let candidature;
     try {
-      candidature = await candidatures.createCandidature({ guildId: guild.id, categoryId: category.id, channelId: channel.id, applicantId: user.id, formAnswers: answers });
+      candidature = await candidatures.createCandidature({ guildId: guild.id, categoryId: category.id, channelId: channel.id, applicantId: user.id });
     } catch (err) {
       await channel.delete('Échec de la création de la candidature en base').catch(() => {});
       throw err;
@@ -197,7 +189,7 @@ function openCandidature(ctx, { category, guild, user, answers = [] }) {
     const notify = (category.notify_role_ids.length ? category.notify_role_ids : category.recruiter_role_ids).map((id) => `<@&${id}>`).join(' ');
     const message = await channel.send({
       content: `<@${user.id}>${notify ? ` ${notify}` : ''}`,
-      embeds: [welcomeEmbed(guild, category, candidature), answersEmbed(answers)].filter(Boolean),
+      embeds: [welcomeEmbed(guild, category, candidature)],
       components: controls(candidature),
       allowedMentions: { parse: ['users', 'roles'] },
     });
@@ -227,7 +219,7 @@ async function dmApplicant(ctx, guild, candidature, lines) {
 /**
  * Change le statut d'une candidature : enregistrement + historique, message dans le salon, message privé au candidat,
  * réponse automatique du statut (si configurée), journal, et — pour un statut final — verrouillage du salon et rôle
- * d'acceptation. `by` nul = décision automatique (contrôle des critères).
+ * d'acceptation. `by` nul = décision automatique (salon supprimé à la main).
  * @returns {{ error?: string, candidature?: object }}
  */
 async function setStatus(ctx, { candidature, category, guild, channel, status, reason = null, by = null }) {
@@ -257,13 +249,17 @@ async function setStatus(ctx, { candidature, category, guild, channel, status, r
     await refreshControls(ctx, channel, updated);
   }
 
-  const reply = settings.autoReplies?.[status];
-  const dmLines = [...lines.filter((line) => line !== ''), reply?.dm && reply.message ? `\n${fill(reply.message, placeholdersOf(guild, category, updated))}` : null];
-  if (by !== String(candidature.applicant_id)) await dmApplicant(ctx, guild, updated, dmLines);
+  // Acceptation : rôles, message privé de bienvenue et invitation à usage unique (voir acceptance.js).
+  const acceptance = status === 'accepted' ? await accept(ctx, { guild, category, candidature: updated }) : { lines: [], log: [] };
 
-  if (status === 'accepted' && category?.accept_role_id) {
-    const member = guild.members.cache.get(String(candidature.applicant_id)) ?? (await guild.members.fetch(String(candidature.applicant_id)).catch(() => null));
-    await member?.roles.add(String(category.accept_role_id), `Candidature #${candidature.id} acceptée`).catch((err) => ctx.logger.warn(`Rôle d’acceptation non donné (candidature #${candidature.id})`, err.message));
+  const reply = settings.autoReplies?.[status];
+  const dmLines = [...lines.filter((line) => line !== ''), reply?.dm && reply.message ? `\n${fill(reply.message, placeholdersOf(guild, category, updated))}` : null, ...acceptance.lines];
+  const delivered = by !== String(candidature.applicant_id) ? await dmApplicant(ctx, guild, updated, dmLines) : true;
+  // Messages privés fermés : le message d'acceptation (lien, invitation) est posté dans le salon privé de la candidature.
+  if (!delivered && acceptance.lines.length && channel) {
+    await channel
+      .send({ content: `<@${candidature.applicant_id}> (tes messages privés sont fermés)`, ...ui.payload(ui.card({ description: acceptance.lines.join('\n') })), allowedMentions: { users: [String(candidature.applicant_id)] } })
+      .catch(() => {});
   }
 
   await sendLog(ctx, guild, [
@@ -272,43 +268,45 @@ async function setStatus(ctx, { candidature, category, guild, channel, status, r
     `📂 Catégorie : ${category?.label ?? '—'}`,
     `🛠️ Par : ${who}`,
     cleanReason ? `📝 ${cleanReason}` : null,
+    ...acceptance.log,
   ]);
   return { candidature: updated };
 }
 
 /**
- * Le candidat déclare sa candidature terminée. Avec le contrôle automatique des critères, la candidature est
- * vérifiée tout de suite : en cas de non-respect, refus automatique avec la liste des éléments non respectés et le
- * délai de représentation ; sinon elle passe « En attente ».
+ * Effets de l'acceptation : rôles d'acceptation, message de bienvenue (placeholders + `{invite}`) et invitation à
+ * usage unique vers le serveur configuré. Renvoie les lignes du message privé et du journal.
  */
+async function accept(ctx, { guild, category, candidature }) {
+  const lines = [];
+  const log = [];
+  const missing = await giveAcceptRoles(ctx, guild, category, candidature);
+  if (category?.accept_role_ids?.length) log.push(missing.length ? `⚠️ Rôle(s) non donné(s) : ${missing.map((id) => `<@&${id}>`).join(' ')}` : `🏷️ Rôle(s) donné(s) : ${category.accept_role_ids.map((id) => `<@&${id}>`).join(' ')}`);
+
+  const invite = await createSingleUseInvite(ctx, category, candidature).catch((err) => ({ error: err.message }));
+  if (invite.error) {
+    log.push(`⚠️ Invitation non générée : ${invite.error}`);
+    ctx.logger.warn(`Invitation d’acceptation non générée (candidature #${candidature.id})`, invite.error);
+  } else if (invite.url) {
+    log.push(`🔗 Invitation à usage unique générée vers **${invite.guildName}**`);
+    await ctx.services.candidatures.addEvent(candidature.id, 'invite', { detail: invite.guildName });
+  }
+
+  const message = category?.accept_message ? fill(category.accept_message, placeholdersOf(guild, category, candidature, { invite: invite.url ?? '' })).trim() : '';
+  if (message) lines.push('', message);
+  if (invite.url && !String(category.accept_message ?? '').includes('{invite}')) {
+    lines.push('', `🔗 **Invitation personnelle vers ${invite.guildName}** (une seule utilisation, expire ${ui.ts(invite.expiresAt, 'R')}) :`, invite.url);
+  }
+  return { lines, log };
+}
+
+/** Le candidat déclare sa candidature terminée : elle passe « En attente » et les recruteurs sont notifiés. */
 async function finishCandidature(ctx, { candidature, category, guild, channel }) {
   const { candidatures } = ctx.services;
   if (candidature.status !== 'draft') return { error: 'Cette candidature a déjà été terminée.' };
-  const content = await candidatures.applicantContent(candidature);
-  if (!content.count && !candidature.form_answers.length) return { error: 'Rédige d’abord ta candidature dans ce salon (au moins un message), puis termine-la.' };
+  if (!(await candidatures.applicantMessageCount(candidature))) return { error: 'Rédige d’abord ta candidature dans ce salon (au moins un message), puis termine-la.' };
 
-  if (Number(category.auto_check) && hasCriteria(category.criteria, category.form_questions)) {
-    const member = guild.members.cache.get(String(candidature.applicant_id)) ?? (await guild.members.fetch(String(candidature.applicant_id)).catch(() => null));
-    const user = member?.user ?? (await ctx.client.users.fetch(String(candidature.applicant_id)).catch(() => null));
-    const result = checkCriteria({
-      criteria: category.criteria,
-      questions: category.form_questions,
-      answers: candidature.form_answers,
-      messages: content.messages,
-      attachments: content.attachments,
-      accountCreatedAt: user?.createdTimestamp ?? null,
-      joinedAt: member?.joinedTimestamp ?? null,
-      roleIds: member ? [...member.roles.cache.keys()] : [],
-    });
-    await candidatures.setCheckFailures(candidature.id, result.failures);
-    if (!result.ok) {
-      const reason = result.failures.map((failure) => `• ${failure}`).join('\n').slice(0, 1000);
-      await candidatures.addEvent(candidature.id, 'submitted', { status: 'draft', actorId: candidature.applicant_id, detail: 'Contrôle automatique des critères : non conforme' });
-      return setStatus(ctx, { candidature, category, guild, channel, status: 'refused', reason, by: null });
-    }
-  }
-
-  await candidatures.addEvent(candidature.id, 'submitted', { actorId: candidature.applicant_id, detail: Number(category.auto_check) ? 'Critères respectés' : null });
+  await candidatures.addEvent(candidature.id, 'submitted', { actorId: candidature.applicant_id });
   const result = await setStatus(ctx, { candidature, category, guild, channel, status: 'pending', by: String(candidature.applicant_id) });
   if (result.error) return result;
   const notify = (category.notify_role_ids.length ? category.notify_role_ids : category.recruiter_role_ids).map((id) => `<@&${id}>`).join(' ');
@@ -367,6 +365,7 @@ module.exports = {
   panelPayload,
   publishPanel,
   refreshPanel,
+  unpublishPanel,
   openProblem,
   openCandidature,
   refreshControls,

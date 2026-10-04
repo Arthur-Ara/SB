@@ -3,9 +3,8 @@
 const { Events, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const ui = require('../../../src/bot/ui');
 const { STATUSES, RECRUITER_STATUSES, isFinal } = require('../lib/statuses');
-const { hasForm, formModal, readAnswers } = require('../lib/form');
 const { isRecruiter } = require('../lib/guard');
-const { openCandidature, openProblem, setStatus, finishCandidature, changeCategory, deleteChannel } = require('../lib/lifecycle');
+const { openCandidature, setStatus, finishCandidature, changeCategory, deleteChannel } = require('../lib/lifecycle');
 const { categorySelect } = require('../lib/components');
 
 const DENIED = ['Réservé aux recruteurs de cette candidature.', 'Accès refusé', ui.EMOJIS.permissions];
@@ -24,31 +23,14 @@ async function loadCandidature(ctx, interaction, id) {
   return { candidature, category };
 }
 
-/** Clic d'ouverture : formulaire (si activé, après vérification) ou ouverture directe. */
+/** Clic d'ouverture (bouton ou option du panel) : le salon de candidature est créé directement. */
 async function handleOpen(ctx, interaction, categoryId) {
   const { category, error } = await categoryOf(ctx, interaction, categoryId);
   if (error) return ui.replyError(interaction, error);
-  if (hasForm(category)) {
-    const problem = await openProblem(ctx, { category, guild: interaction.guild, user: interaction.user });
-    if (problem) return ui.replyError(interaction, problem, 'Action impossible', '⚠️');
-    return interaction.showModal(formModal(category, `cand:form:${category.id}`));
-  }
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  await open(ctx, interaction, category, []);
-}
-
-async function open(ctx, interaction, category, answers) {
-  const result = await openCandidature(ctx, { category, guild: interaction.guild, user: interaction.user, answers });
+  const result = await openCandidature(ctx, { category, guild: interaction.guild, user: interaction.user });
   if (result.error) return ui.respond(interaction, ui.errorCard(result.error, 'Action impossible', '⚠️'));
   await ui.respond(interaction, ui.successCard('Candidature ouverte', `Ton salon est créé : <#${result.channel.id}>`, '📨'));
-}
-
-async function handleFormSubmit(ctx, interaction, categoryId) {
-  const { category, error } = await categoryOf(ctx, interaction, categoryId);
-  if (error) return ui.replyError(interaction, error);
-  const answers = readAnswers(interaction, category);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-  await open(ctx, interaction, category, answers);
 }
 
 async function handleFinish(ctx, interaction, id) {
@@ -162,7 +144,6 @@ module.exports = {
         if (action === 'status') return await handleStatusSelect(ctx, interaction, id);
         if (action === 'moveto') return await handleMoveSelect(ctx, interaction, id);
       } else if (interaction.isModalSubmit()) {
-        if (action === 'form') return await handleFormSubmit(ctx, interaction, id);
         if (action === 'reason') return await handleReasonSubmit(ctx, interaction, id, extra);
       }
     } catch (err) {

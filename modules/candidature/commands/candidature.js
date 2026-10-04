@@ -109,7 +109,17 @@ module.exports = {
   },
 
   async autocomplete(ctx, interaction) {
-    const typed = String(interaction.options.getFocused() ?? '').toLowerCase();
+    const focused = interaction.options.getFocused(true);
+    const typed = String(focused.value ?? '').toLowerCase();
+    if (focused.name === 'panel') {
+      const panels = await ctx.services.candidatures.listPanels(interaction.guildId);
+      return interaction.respond(
+        panels
+          .map((p) => ({ name: `Panel #${p.id}${p.title ? ` — ${p.title}` : ''}`.slice(0, 100), value: Number(p.id) }))
+          .filter((choice) => choice.name.toLowerCase().includes(typed))
+          .slice(0, 25),
+      );
+    }
     const categories = await ctx.services.candidatures.listCategories(interaction.guildId);
     await interaction.respond(
       categories
@@ -153,7 +163,8 @@ module.exports = {
     .addSubcommand((sub) =>
       sub
         .setName('panel')
-        .setDescription('Publier le panel de candidatures dans un salon (admins)')
+        .setDescription('Publier un panel de candidatures dans un salon (admins)')
+        .addIntegerOption((o) => o.setName('panel').setDescription('Panel à publier (facultatif s’il n’y en a qu’un)').setAutocomplete(true))
         .addChannelOption((o) => o.setName('salon').setDescription('Salon (par défaut : ici)')),
     )
     .addSubcommand((sub) =>
@@ -182,16 +193,22 @@ module.exports = {
     if (sub === 'panel') {
       const channel = interaction.options.getChannel('salon') ?? interaction.channel;
       if (!channel?.isTextBased() || channel.isThread() || channel.isVoiceBased()) return ui.replyError(interaction, 'Choisis un salon textuel.');
+      const panels = await candidatures.listPanels(interaction.guildId);
+      const wanted = interaction.options.getInteger('panel');
+      const panel = wanted ? panels.find((p) => Number(p.id) === wanted) : panels.length === 1 ? panels[0] : null;
+      if (!panel) {
+        return ui.replyError(interaction, panels.length ? 'Choisis le panel à publier (option `panel`).' : 'Aucun panel : crée-en un sur le panel web (`/candidature config`).', 'Publication impossible', '⚠️');
+      }
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-      const result = await publishPanel(ctx, interaction.guild, channel).catch((err) => ({ error: err.message }));
+      const result = await publishPanel(ctx, interaction.guild, panel, channel).catch((err) => ({ error: err.message }));
       if (result.error) return ui.respond(interaction, ui.errorCard(result.error, 'Publication impossible', '⚠️'));
-      return ui.respond(interaction, ui.successCard('Panel publié', `Le panel de candidatures est dans <#${channel.id}>.`, '📨'));
+      return ui.respond(interaction, ui.successCard('Panel publié', `Le panel #${panel.id} est publié dans <#${channel.id}>.`, '📨'));
     }
     // config
     const url = webUrl(ctx.config, 'm/candidature/');
     return ui.respond(
       interaction,
-      ui.card({ description: url ? `⚙️ Configure les catégories, le modèle, le formulaire, les critères et les réponses automatiques sur le panel web :\n${url}` : '⚠️ Le panel web est désactivé ou son adresse est invalide.' }),
+      ui.card({ description: url ? `⚙️ Configure les panels, les catégories, leur modèle et les réponses automatiques sur le panel web :\n${url}` : '⚠️ Le panel web est désactivé ou son adresse est invalide.' }),
       { ephemeral: true },
     );
   },

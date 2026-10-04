@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.5.1",
+    "date": "2026-10-04",
+    "title": "Candidatures : panels et acceptation",
+    "changes": [
+      { "type": "feature", "module": "candidature", "text": "Plusieurs panels de candidatures, chacun publié dans son propre salon avec ses catégories (boutons ou menu déroulant). Le panel existant devient le panel #1 avec toutes ses catégories." },
+      { "type": "feature", "module": "candidature", "text": "Acceptation : plusieurs rôles donnés, message privé libre (lien d'un Discord, consignes…) et invitation à usage unique générée par le bot vers un autre serveur, envoyée uniquement au candidat accepté." },
+      { "type": "change", "module": "candidature", "text": "Panel web réorganisé comme la page Tickets : Réglages, Panels (avec leurs catégories), Candidatures en cours, Historique." },
+      { "type": "change", "module": "candidature", "text": "Retrait du formulaire avant l'ouverture : un clic sur le panel crée directement le salon de candidature." },
+      { "type": "change", "module": "candidature", "text": "Contrôle automatique des critères retiré pour le moment." }
+    ]
+  },
+  {
     "version": "1.5.0",
     "date": "2026-10-04",
     "title": "Candidatures",

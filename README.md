@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SciensBot
 
 Bot Discord modulaire (slash commands uniquement) accompagné d'un dashboard web centralisé, réservé à une liste de membres de confiance.
@@ -825,3 +826,6 @@ Par défaut, `/stats` est réservée aux administrateurs (données de membres) :
 - **Départs pendant une absence du bot** : ils sont datés du redémarrage (source « rattrapage »).
 - **Fuseau horaire** : les regroupements utilisent le décalage horaire actuel du navigateur ; un changement d'heure (été/hiver)
   dans la période décale d'une heure les intervalles situés de l'autre côté.
+=======
+# SB
+>>>>>>> c3609fa52865537e6509bb8b29798b89d563a741

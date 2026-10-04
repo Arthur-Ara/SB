@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Candidatures · SciensBot</title>
+    <link rel="stylesheet" href="/assets/core.css" />
+    <link rel="stylesheet" href="/m/candidature/assets/candidature.css" />
+    <script src="/assets/theme.js"></script>
+    <script src="/assets/core.js" defer></script>
+    <script src="/m/candidature/assets/candidature.js" defer></script>
+  </head>
+  <body>
+    <header id="topbar" class="topbar"></header>
+    <main class="page" id="main">
+      <div class="page-head">
+        <h1>📨 Candidatures</h1>
+        <span class="status-line">Statuts, catégories, critères et transcriptions. Les actions faites ici sont journalisées sur Discord.</span>
+      </div>
+
+      <div class="card toolbar">
+        <label class="field"><span>Serveur</span><select id="f-guild"></select></label>
+      </div>
+
+      <div id="error" class="error-banner" role="alert" hidden></div>
+      <div id="empty" class="card empty" hidden>
+        Aucun serveur n’a le module Candidatures activé. Active-le avec <code>/modules</code> sur Discord (réservé aux
+        administrateurs), puis reviens ici.
+      </div>
+
+      <div id="content" hidden>
+        <section class="tiles" id="tiles" aria-label="Indicateurs"></section>
+
+        <div class="tabs" id="tabs" role="tablist">
+          <button type="button" class="tab-btn" data-tab="active" role="tab">📬 En cours</button>
+          <button type="button" class="tab-btn" data-tab="history" role="tab">🗂️ Historique</button>
+          <button type="button" class="tab-btn" data-tab="categories" role="tab">📂 Catégories</button>
+          <button type="button" class="tab-btn" data-tab="settings" role="tab">⚙️ Réglages</button>
+        </div>
+
+        <div class="tab-panel" id="tab-active" role="tabpanel">
+          <div id="active-blocks"></div>
+        </div>
+
+        <div class="tab-panel" id="tab-history" role="tabpanel" hidden>
+          <section class="card" id="history-filters-card"></section>
+          <section class="card" id="history-summary-card" hidden></section>
+          <section class="card" id="history-card"></section>
+        </div>
+
+        <div class="tab-panel" id="tab-categories" role="tabpanel" hidden>
+          <p class="muted">
+            Une catégorie = un type de candidature (ex. Modérateur, Animateur). Chacune a son modèle d’ouverture, ses
+            recruteurs, son formulaire facultatif et ses critères de contrôle automatique.
+          </p>
+          <div id="categories-list"></div>
+          <div class="card">
+            <div class="filters"><button type="button" class="btn btn-primary" id="add-category">+ Nouvelle catégorie</button></div>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="tab-settings" role="tabpanel" hidden>
+          <h2 class="section-title">Réglages généraux</h2>
+          <section class="card" id="settings-card"></section>
+
+          <h2 class="section-title">Réponses automatiques</h2>
+          <section class="card" id="replies-card"></section>
+
+          <h2 class="section-title">Panel de candidatures</h2>
+          <section class="card" id="panel-card"></section>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

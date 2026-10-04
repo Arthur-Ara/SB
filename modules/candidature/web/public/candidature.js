@@ -1,0 +1,910 @@
+/* Panel web du module Candidatures : candidatures en cours, historique par candidat, catégories, réglages. */
+(function () {
+  'use strict';
+
+  var el = Core.el;
+  var fmt = Core.fmt;
+  var API = '/m/candidature/api';
+  var main = document.getElementById('main');
+  var guildId = '';
+  var data = null;
+  var expandedCategories = new Set();
+  var historyFilters = { applicant: '', status: '', category: '', scope: 'all', page: 1 };
+  var history = null;
+
+  var PLACEHOLDERS = '{user} {username} {category} {id} {number} {status} {reason} {retry} {recruiters} {server} {criteria}';
+
+  function showError(message) {
+    var box = document.getElementById('error');
+    box.textContent = message || '';
+    box.hidden = !message;
+    if (message) box.scrollIntoView({ block: 'nearest' });
+  }
+
+  function call(method, path, body) {
+    return Core.request(method, API + path, body);
+  }
+
+  function query() {
+    return '?guild=' + encodeURIComponent(guildId);
+  }
+
+  async function refresh(promise) {
+    showError('');
+    main.classList.add('is-loading');
+    try {
+      data = await promise;
+      renderAll();
+      return true;
+    } catch (err) {
+      showError(err.message);
+      return false;
+    } finally {
+      main.classList.remove('is-loading');
+    }
+  }
+
+  // ── Petits composants ──────────────────────────────────────────────────────
+  function personEl(person, onclick) {
+    if (!person) return el('span', { class: 'muted', text: '—' });
+    return el(
+      onclick ? 'button' : 'span',
+      { type: onclick ? 'button' : null, class: 'person' + (onclick ? ' person-link' : ''), onclick: onclick || null, title: onclick ? 'Voir toutes ses candidatures' : null },
+      el('img', { src: person.avatar, alt: '', loading: 'lazy' }),
+      el('span', { text: person.name + (person.inGuild ? '' : ' (parti)'), title: person.username ? '@' + person.username : person.id }),
+    );
+  }
+
+  function statusOf(key) {
+    return data.statuses.find(function (s) { return s.key === key; }) || { key: key, label: key, emoji: '' };
+  }
+
+  function statusBadge(key) {
+    var s = statusOf(key);
+    return el('span', { class: 'cand-status cand-status-' + key, text: s.emoji + ' ' + s.label });
+  }
+
+  function categoryLabel(id) {
+    var found = data.categories.find(function (c) { return String(c.id) === String(id); });
+    return found ? (found.emoji ? found.emoji + ' ' : '') + found.label : 'Catégorie supprimée';
+  }
+
+  function transcriptLink(id) {
+    return '/m/candidature/transcript?candidature=' + encodeURIComponent(id);
+  }
+
+  function channelLink(c) {
+    return 'https://discord.com/channels/' + guildId + '/' + c.channelId;
+  }
+
+  function table(columns, rows, emptyText) {
+    columns = columns.filter(Boolean);
+    if (!rows.length) return el('div', { class: 'empty', text: emptyText || 'Rien à afficher.' });
+    return el(
+      'div',
+      { class: 'table-wrap' },
+      el(
+        'table',
+        { class: 'data' },
+        el('thead', {}, el('tr', {}, columns.map(function (col) { return el('th', { class: col.cls || null, text: col.label }); }))),
+        el('tbody', {}, rows.map(function (row) {
+          return el('tr', {}, columns.map(function (col) {
+            var value = col.value(row);
+            return el('td', { class: col.cls || null }, value instanceof Node ? value : String(value === null || value === undefined ? '—' : value));
+          }));
+        })),
+      ),
+    );
+  }
+
+  function tile(label, value, sub) {
+    return el('div', { class: 'tile' }, el('div', { class: 'tile-label', text: label }), el('div', { class: 'tile-value', text: value }), sub ? el('div', { class: 'tile-sub', text: sub }) : null);
+  }
+
+  function options(list, selected, emptyLabel) {
+    var nodes = emptyLabel !== undefined ? [el('option', { value: '', text: emptyLabel })] : [];
+    list.forEach(function (item) { nodes.push(el('option', { value: item.value, text: item.text })); });
+    var select = el('select', {}, nodes);
+    select.value = selected === null || selected === undefined ? '' : String(selected);
+    return select;
+  }
+
+  function numberInput(value, max, placeholder) {
+    return el('input', { type: 'number', min: '0', max: String(max), step: '1', value: value ? String(value) : '', placeholder: placeholder || '—' });
+  }
+
+  function intValue(input) {
+    var n = parseInt(input.value, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  function listText(list) {
+    return (list || []).join('\n');
+  }
+
+  function textList(textarea) {
+    return textarea.value.split(/[\n,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+  }
+
+  // ── Actions sur une candidature (statut, catégorie, salon) ───────────────────
+  /**
+   * Change le statut. Refus : motif demandé (obligatoire si l'admin l'exige) ; acceptation : précision facultative.
+   * `after` est appelé avec l'état renvoyé par le serveur.
+   */
+  function changeStatus(candidature, status, after) {
+    var ask = status === 'refused' || status === 'accepted';
+    var required = status === 'refused' && data.settings.refusalReasonRequired;
+    var reasonPromise = ask
+      ? Core.prompt(status === 'refused' ? 'Motif du refus' + (required ? ' (obligatoire)' : ' (facultatif)') : 'Précision pour le candidat (facultatif)', {
+          title: statusOf(status).emoji + ' ' + statusOf(status).label + ' — candidature #' + candidature.id,
+          placeholder: status === 'refused' ? 'Ex. : expérience insuffisante, candidature incomplète…' : 'Ex. : bienvenue dans l’équipe !',
+          maxlength: '900',
+          confirmLabel: statusOf(status).label,
+        })
+      : Promise.resolve('');
+    return reasonPromise.then(function (reason) {
+      if (reason === null) return null;
+      if (required && !reason) {
+        showError('Le refus doit être motivé : indique la raison.');
+        return null;
+      }
+      return refresh(call('POST', '/candidatures/' + candidature.id + '/status' + query(), { status: status, reason: reason || null })).then(after || null);
+    });
+  }
+
+  function statusControl(candidature) {
+    var select = options(
+      data.statuses.filter(function (s) { return s.recruiter; }).map(function (s) { return { value: s.key, text: s.emoji + ' ' + s.label }; }),
+      candidature.status === 'draft' ? '' : candidature.status,
+      candidature.status === 'draft' ? '📝 En rédaction…' : undefined,
+    );
+    select.setAttribute('aria-label', 'Statut de la candidature #' + candidature.id);
+    select.addEventListener('change', function () {
+      if (!select.value || select.value === candidature.status) return;
+      var chosen = select.value;
+      select.value = candidature.status === 'draft' ? '' : candidature.status;
+      changeStatus(candidature, chosen);
+    });
+    return select;
+  }
+
+  function moveControl(candidature) {
+    var others = data.categories.filter(function (c) { return String(c.id) !== String(candidature.categoryId); });
+    if (!others.length) return null;
+    var select = options(others.map(function (c) { return { value: c.id, text: (c.emoji ? c.emoji + ' ' : '') + c.label }; }), '', '🔀 Changer de catégorie…');
+    select.setAttribute('aria-label', 'Changer la catégorie de la candidature #' + candidature.id);
+    select.addEventListener('change', function () {
+      var target = select.value;
+      select.value = '';
+      if (!target) return;
+      Core.confirm('Déplacer la candidature #' + candidature.id + ' vers « ' + categoryLabel(target) + ' » ? Le salon change de catégorie Discord et de recruteurs.', { confirmLabel: 'Déplacer', danger: false }).then(function (ok) {
+        if (ok) refresh(call('POST', '/candidatures/' + candidature.id + '/category' + query(), { categoryId: target }));
+      });
+    });
+    return select;
+  }
+
+  function deleteChannelButton(candidature, after) {
+    return el('button', {
+      type: 'button',
+      class: 'btn btn-danger btn-small',
+      text: '🗑️ Supprimer le salon',
+      onclick: function () {
+        Core.confirm('Supprimer le salon de la candidature #' + candidature.id + ' ? La candidature et sa transcription restent consultables ici.').then(function (ok) {
+          if (ok) refresh(call('POST', '/candidatures/' + candidature.id + '/delete-channel' + query(), {})).then(after || null);
+        });
+      },
+    });
+  }
+
+  // ── Indicateurs ─────────────────────────────────────────────────────────────
+  function renderTiles() {
+    var counts = {};
+    data.candidatures.forEach(function (c) { counts[c.status] = (counts[c.status] || 0) + 1; });
+    var box = Core.clear(document.getElementById('tiles'));
+    box.append(tile('En cours', fmt.number(data.candidatures.length), 'candidatures visibles'));
+    ['draft', 'pending', 'acknowledged', 'processing', 'interview'].forEach(function (key) {
+      var s = statusOf(key);
+      box.append(tile(s.emoji + ' ' + s.label, fmt.number(counts[key] || 0)));
+    });
+  }
+
+  // ── Onglet « En cours » : un bloc par catégorie visible ────────────────────
+  function renderActive() {
+    var container = Core.clear(document.getElementById('active-blocks'));
+    var visible = data.categories.filter(function (c) { return data.visibleCategoryIds.map(String).indexOf(String(c.id)) !== -1; });
+    if (!data.categories.length) {
+      container.append(el('div', { class: 'card empty', text: 'Aucune catégorie de candidature : crée-en une dans l’onglet « Catégories ».' }));
+      return;
+    }
+    if (!visible.length) {
+      container.append(el('div', { class: 'card empty', text: 'Tu n’es recruteur d’aucune catégorie : aucune candidature à afficher.' }));
+      return;
+    }
+    visible.forEach(function (category) {
+      var rows = data.candidatures.filter(function (c) { return String(c.categoryId) === String(category.id); });
+      var waiting = rows.filter(function (c) { return c.status === 'pending'; }).length;
+      container.append(
+        el(
+          'section',
+          { class: 'card panel-block' },
+          el(
+            'div',
+            { class: 'panel-head' },
+            el('h3', { text: (category.emoji ? category.emoji + ' ' : '') + category.label }),
+            el(
+              'span',
+              { class: 'section-actions' },
+              el('span', { class: 'badge-status' + (rows.length ? ' on' : ''), text: rows.length + ' en cours' }),
+              waiting ? el('span', { class: 'badge-status warn', text: '⏳ ' + waiting + ' à prendre en compte' }) : null,
+            ),
+          ),
+          table(
+            [
+              { label: '#', value: function (c) { return String(c.id); } },
+              { label: 'Candidat', value: function (c) { return personEl(c.applicant, function () { openHistoryFor(c.applicant.id); }); } },
+              { label: 'Statut', value: function (c) { return statusBadge(c.status); } },
+              { label: 'Ouverte', value: function (c) { return fmt.dateTime(c.createdAt); } },
+              { label: 'Envoyée', value: function (c) { return c.submittedAt ? fmt.dateTime(c.submittedAt) : el('span', { class: 'muted', text: 'en rédaction' }); } },
+              { label: 'Changer le statut', value: statusControl },
+              { label: 'Catégorie', value: function (c) { return moveControl(c) || el('span', { class: 'muted', text: '—' }); } },
+              {
+                label: '',
+                value: function (c) {
+                  return el(
+                    'span',
+                    { class: 'row-actions' },
+                    el('a', { href: transcriptLink(c.id), target: '_blank', rel: 'noopener', text: '📄 Transcription' }),
+                    c.channelExists ? el('a', { href: channelLink(c), target: '_blank', rel: 'noopener', text: '💬 Salon' }) : null,
+                  );
+                },
+              },
+            ],
+            rows,
+            'Aucune candidature en cours dans cette catégorie.',
+          ),
+        ),
+      );
+    });
+  }
+
+  // ── Onglet « Historique » ──────────────────────────────────────────────────
+  function openHistoryFor(applicantId) {
+    historyFilters = { applicant: applicantId, status: '', category: '', scope: 'all', page: 1 };
+    activateTab('history');
+    renderHistoryFilters();
+    reloadHistory();
+  }
+
+  async function reloadHistory() {
+    showError('');
+    var params = new URLSearchParams({ guild: guildId, scope: historyFilters.scope, page: String(historyFilters.page) });
+    if (historyFilters.applicant) params.set('applicant', historyFilters.applicant);
+    if (historyFilters.status) params.set('status', historyFilters.status);
+    if (historyFilters.category) params.set('category', historyFilters.category);
+    try {
+      history = await call('GET', '/candidatures/search?' + params.toString());
+      renderHistory();
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  function renderHistoryFilters() {
+    var applicant = el('input', { type: 'text', inputmode: 'numeric', placeholder: 'ID Discord du candidat', value: historyFilters.applicant });
+    var status = options(data.statuses.map(function (s) { return { value: s.key, text: s.emoji + ' ' + s.label }; }), historyFilters.status, 'Tous les statuts');
+    var category = options(data.categories.map(function (c) { return { value: c.id, text: (c.emoji ? c.emoji + ' ' : '') + c.label }; }), historyFilters.category, 'Toutes les catégories');
+    var scope = options([{ value: 'all', text: 'Toutes (en cours comprises)' }, { value: 'closed', text: 'Clôturées seulement' }], historyFilters.scope);
+    Core.clear(document.getElementById('history-filters-card')).append(
+      el(
+        'form',
+        {
+          class: 'filters',
+          onsubmit: function (event) {
+            event.preventDefault();
+            historyFilters = { applicant: applicant.value.trim(), status: status.value, category: category.value, scope: scope.value, page: 1 };
+            reloadHistory();
+          },
+        },
+        el('label', { class: 'field' }, el('span', { text: 'Candidat' }), applicant),
+        el('label', { class: 'field' }, el('span', { text: 'Statut' }), status),
+        el('label', { class: 'field' }, el('span', { text: 'Catégorie' }), category),
+        el('label', { class: 'field' }, el('span', { text: 'Portée' }), scope),
+        el('button', { type: 'submit', class: 'btn btn-primary', text: '🔎 Rechercher' }),
+        el('button', {
+          type: 'button',
+          class: 'btn btn-ghost',
+          text: 'Réinitialiser',
+          onclick: function () {
+            historyFilters = { applicant: '', status: '', category: '', scope: 'all', page: 1 };
+            renderHistoryFilters();
+            reloadHistory();
+          },
+        }),
+      ),
+    );
+  }
+
+  function reasonCell(c) {
+    var parts = [];
+    if (c.reason) parts.push(el('div', { class: 'cand-reason', text: c.reason }));
+    if (!parts.length) return el('span', { class: 'muted', text: '—' });
+    return el('div', {}, parts);
+  }
+
+  function decidedBy(c) {
+    if (c.statusBy) return personEl(c.statusBy);
+    if (c.auto) return el('span', { class: 'badge-status warn', text: '🤖 Automatique', title: 'Contrôle automatique des critères' });
+    return el('span', { class: 'muted', text: '—' });
+  }
+
+  /** Synthèse d'un candidat (filtre « Candidat » renseigné) : nombre de candidatures par issue. */
+  function renderHistorySummary() {
+    var box = document.getElementById('history-summary-card');
+    if (!historyFilters.applicant || !history || !history.rows.length || historyFilters.status || historyFilters.scope !== 'all') {
+      box.hidden = true;
+      return;
+    }
+    var who = history.rows[0].applicant;
+    var counts = {};
+    history.rows.forEach(function (c) { counts[c.status] = (counts[c.status] || 0) + 1; });
+    box.hidden = false;
+    Core.clear(box).append(
+      el(
+        'div',
+        { class: 'filters' },
+        personEl(who),
+        el('strong', { text: fmt.number(history.total) + ' candidature(s)' }),
+        Object.keys(counts).map(function (key) { return el('span', { class: 'cand-status cand-status-' + key, text: statusOf(key).emoji + ' ' + counts[key] + ' ' + statusOf(key).label.toLowerCase() }); }),
+        history.pages > 1 ? el('span', { class: 'muted', text: '(page courante)' }) : null,
+      ),
+    );
+  }
+
+  function renderHistory() {
+    renderHistorySummary();
+    var pager = el(
+      'div',
+      { class: 'hist-pager' },
+      el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '❮ Précédent', disabled: history.page <= 1, onclick: function () { historyFilters.page -= 1; reloadHistory(); } }),
+      'Page ' + history.page + ' / ' + history.pages + ' · ' + fmt.number(history.total) + ' candidature(s)',
+      el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: 'Suivant ❯', disabled: history.page >= history.pages, onclick: function () { historyFilters.page += 1; reloadHistory(); } }),
+    );
+    Core.clear(document.getElementById('history-card')).append(
+      table(
+        [
+          { label: '#', value: function (c) { return String(c.id); } },
+          { label: 'Candidat', value: function (c) { return personEl(c.applicant, function () { openHistoryFor(c.applicant.id); }); } },
+          { label: 'Catégorie', value: function (c) { return c.categoryLabel; } },
+          { label: 'Issue', value: function (c) { return statusBadge(c.status); } },
+          { label: 'Motif / éléments non respectés', value: reasonCell },
+          { label: 'Décidé par', value: decidedBy },
+          { label: 'Ouverte', value: function (c) { return fmt.dateTime(c.createdAt); } },
+          { label: 'Clôturée', value: function (c) { return c.closedAt ? fmt.dateTime(c.closedAt) : el('span', { class: 'muted', text: 'en cours' }); } },
+          {
+            label: '',
+            value: function (c) {
+              return el(
+                'span',
+                { class: 'row-actions' },
+                el('a', { href: transcriptLink(c.id), target: '_blank', rel: 'noopener', text: '📄 Transcription' }),
+                c.final && c.channelExists ? deleteChannelButton(c) : null,
+              );
+            },
+          },
+        ],
+        history.rows,
+        'Aucune candidature ne correspond.',
+      ),
+      pager,
+    );
+  }
+
+  // ── Onglet « Catégories » ──────────────────────────────────────────────────
+  function embedPreview(fields) {
+    if (!fields.title && !fields.description) return el('div', { class: 'embed-preview empty', text: 'Aucun modèle : le message par défaut sera utilisé.' });
+    var box = el(
+      'div',
+      { class: 'embed-preview', style: 'border-left-color:' + (fields.color || '#5865F2') },
+      fields.title ? el('div', { class: 'ep-title', text: fields.title }) : null,
+      fields.description ? el('div', { class: 'ep-desc', text: fields.description }) : null,
+      fields.footer ? el('div', { class: 'ep-footer', text: fields.footer }) : null,
+    );
+    if (fields.image) box.append(el('img', { src: fields.image, alt: '' }));
+    return box;
+  }
+
+  /** Formulaire d'embed (modèle d'ouverture, panel) avec aperçu ; `values()` renvoie les champs saisis. */
+  function embedForm(fields, emptyText) {
+    var title = el('input', { type: 'text', value: fields.title || '', maxlength: '256' });
+    var description = el('textarea', { maxlength: '4096', rows: '5' }, fields.description || '');
+    var color = el('input', { type: 'color', value: fields.color || '#2b2d31' });
+    var footer = el('input', { type: 'text', value: fields.footer || '', maxlength: '2048' });
+    var image = el('input', { type: 'text', placeholder: 'https://…', value: fields.image || '' });
+    var thumbnail = el('input', { type: 'text', placeholder: 'https://…', value: fields.thumbnail || '' });
+    var preview = el('div', {});
+    function update() {
+      var node = embedPreview({ title: title.value, description: description.value, color: color.value, footer: footer.value, image: image.value });
+      if (!title.value && !description.value && emptyText) node.textContent = emptyText;
+      Core.clear(preview).append(node);
+    }
+    [title, description, color, footer, image].forEach(function (input) { input.addEventListener('input', update); });
+    update();
+    var box = el(
+      'div',
+      { class: 'stack' },
+      el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Titre' }), title), el('label', { class: 'field' }, el('span', { text: 'Couleur' }), color)),
+      el('label', { class: 'field' }, el('span', { text: 'Description' }), description),
+      el('label', { class: 'field field-grow' }, el('span', { text: 'Pied de page' }), footer),
+      el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Image (URL)' }), image), el('label', { class: 'field field-grow' }, el('span', { text: 'Vignette (URL)' }), thumbnail)),
+      el('label', { class: 'field' }, el('span', { text: 'Aperçu' }), preview),
+    );
+    box.values = function () {
+      return { title: title.value.trim() || null, description: description.value.trim() || null, color: color.value || null, footer: footer.value.trim() || null, image: image.value.trim() || null, thumbnail: thumbnail.value.trim() || null };
+    };
+    return box;
+  }
+
+  /** Éditeur d'une liste de lignes (questions du formulaire, parties attendues) : ajout, retrait, ordre. */
+  function rowsEditor(initial, makeRow, { addLabel, max, emptyText }) {
+    var items = initial.map(makeRow);
+    var list = el('div', { class: 'cand-rows' });
+    var addButton = el('button', { type: 'button', class: 'btn btn-small', text: addLabel });
+    function render() {
+      Core.clear(list);
+      if (!items.length) list.append(el('div', { class: 'empty', text: emptyText }));
+      items.forEach(function (item, index) {
+        list.append(
+          el(
+            'div',
+            { class: 'cand-row' },
+            item.node,
+            el(
+              'div',
+              { class: 'cand-row-actions' },
+              index > 0 ? el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '▲', title: 'Monter', onclick: function () { items.splice(index - 1, 0, items.splice(index, 1)[0]); render(); } }) : null,
+              index < items.length - 1 ? el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '▼', title: 'Descendre', onclick: function () { items.splice(index + 1, 0, items.splice(index, 1)[0]); render(); } }) : null,
+              el('button', { type: 'button', class: 'btn btn-ghost btn-small', text: '✕', title: 'Retirer', onclick: function () { items.splice(index, 1); render(); } }),
+            ),
+          ),
+        );
+      });
+      addButton.disabled = items.length >= max;
+    }
+    addButton.addEventListener('click', function () {
+      if (items.length >= max) return;
+      items.push(makeRow({}));
+      render();
+    });
+    render();
+    var box = el('div', { class: 'stack' }, list, el('div', { class: 'filters' }, addButton, el('span', { class: 'muted', text: max + ' au maximum' })));
+    box.values = function () { return items.map(function (item) { return item.value(); }); };
+    return box;
+  }
+
+  function questionRow(q) {
+    var label = el('input', { type: 'text', maxlength: '45', placeholder: 'Question (45 caractères max)', value: q.label || '' });
+    var placeholder = el('input', { type: 'text', maxlength: '100', placeholder: 'Texte d’exemple (facultatif)', value: q.placeholder || '' });
+    var style = options([{ value: 'short', text: 'Réponse courte' }, { value: 'paragraph', text: 'Paragraphe' }], q.style || 'paragraph');
+    var required = el('input', { type: 'checkbox' });
+    required.checked = q.required !== false;
+    var minLength = numberInput(q.minLength, 4000, '0');
+    var maxLength = numberInput(q.maxLength, 4000, 'auto');
+    return {
+      node: el(
+        'div',
+        { class: 'stack' },
+        el('div', { class: 'field-row' }, el('label', { class: 'field field-grow' }, el('span', { text: 'Question' }), label), el('label', { class: 'field' }, el('span', { text: 'Type' }), style)),
+        el(
+          'div',
+          { class: 'field-row' },
+          el('label', { class: 'field field-grow' }, el('span', { text: 'Exemple' }), placeholder),
+          el('label', { class: 'field' }, el('span', { text: 'Caractères min' }), minLength),
+          el('label', { class: 'field' }, el('span', { text: 'Caractères max' }), maxLength),
+          el('label', { class: 'check' }, required, 'Obligatoire'),
+        ),
+      ),
+      value: function () {
+        return { label: label.value.trim(), placeholder: placeholder.value.trim(), style: style.value, required: required.checked, minLength: intValue(minLength), maxLength: intValue(maxLength) };
+      },
+    };
+  }
+
+  function sectionRow(s) {
+    var name = el('input', { type: 'text', maxlength: '60', placeholder: 'Nom de la partie (ex. Présentation)', value: s.name || '' });
+    var minChars = numberInput(s.minChars, 20000, '0');
+    var maxChars = numberInput(s.maxChars, 20000, '—');
+    var required = el('input', { type: 'checkbox' });
+    required.checked = s.required !== false;
+    return {
+      node: el(
+        'div',
+        { class: 'field-row' },
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Partie' }), name),
+        el('label', { class: 'field' }, el('span', { text: 'Caractères min' }), minChars),
+        el('label', { class: 'field' }, el('span', { text: 'Caractères max' }), maxChars),
+        el('label', { class: 'check' }, required, 'Obligatoire'),
+      ),
+      value: function () {
+        return { name: name.value.trim(), minChars: intValue(minChars), maxChars: intValue(maxChars), required: required.checked };
+      },
+    };
+  }
+
+  function rolesPicker(selected) {
+    var list = (selected || []).slice();
+    var node = Core.rolePicker(data.roles, list);
+    node.values = function () { return list.slice(); };
+    return node;
+  }
+
+  function renderCategoryBody(category) {
+    // Général
+    var label = el('input', { type: 'text', maxlength: '80', value: category.label });
+    var emoji = el('input', { type: 'text', maxlength: '64', placeholder: '📨', value: category.emoji || '' });
+    var buttonStyle = options(
+      [{ value: 'primary', text: 'Bleu' }, { value: 'secondary', text: 'Gris' }, { value: 'success', text: 'Vert' }, { value: 'danger', text: 'Rouge' }],
+      category.buttonStyle || 'primary',
+    );
+    var selectDescription = el('input', { type: 'text', maxlength: '100', placeholder: 'Sous le libellé, si le panel est en menu déroulant', value: category.selectDescription || '' });
+    var discordCategory = options(data.discordCategories.map(function (c) { return { value: c.id, text: c.name }; }), category.categoryId, '(choisir une catégorie Discord)');
+    var namePattern = el('input', { type: 'text', maxlength: '100', placeholder: 'candidature-{number}-{username}', value: category.channelNamePattern || '' });
+    var maxOpen = numberInput(category.maxOpen, 1000, 'illimité');
+    var cooldown = numberInput(category.cooldownDays, 36500, 'aucun');
+    var acceptRole = options(data.roles.map(function (r) { return { value: r.id, text: r.name }; }), category.acceptRoleId, '(aucun)');
+    var recruiters = rolesPicker(category.recruiterRoleIds);
+    var notify = rolesPicker(category.notifyRoleIds);
+
+    // Modèle d'ouverture
+    var template = embedForm(
+      { title: category.openedTitle, description: category.openedDescription, color: category.openedColor, footer: category.openedFooter, image: category.openedImage, thumbnail: category.openedThumbnail },
+      'Aucun modèle : un message par défaut invite le candidat à rédiger puis à cliquer sur « Terminer ».',
+    );
+
+    // Formulaire
+    var formEnabled = el('input', { type: 'checkbox' });
+    formEnabled.checked = category.formEnabled;
+    var formTitle = el('input', { type: 'text', maxlength: '45', placeholder: category.label, value: category.formTitle || '' });
+    var questions = rowsEditor(category.formQuestions || [], questionRow, { addLabel: '+ Question', max: data.maxQuestions, emptyText: 'Aucune question.' });
+
+    // Critères
+    var c = category.criteria || {};
+    var autoCheck = el('input', { type: 'checkbox' });
+    autoCheck.checked = category.autoCheck;
+    var minChars = numberInput(c.minChars, 100000);
+    var maxChars = numberInput(c.maxChars, 100000);
+    var minMessages = numberInput(c.minMessages, 1000);
+    var minAttachments = numberInput(c.minAttachments, 100);
+    var minAccountAge = numberInput(c.minAccountAgeDays, 36500);
+    var minMemberDays = numberInput(c.minMemberDays, 36500);
+    var keywords = el('textarea', { rows: '3', placeholder: 'Un mot ou une expression par ligne' }, listText(c.requiredKeywords));
+    var forbidden = el('textarea', { rows: '3', placeholder: 'Un mot par ligne' }, listText(c.forbiddenWords));
+    var requiredRoles = rolesPicker(c.requiredRoleIds);
+    var forbiddenRoles = rolesPicker(c.forbiddenRoleIds);
+    var sections = rowsEditor(c.sections || [], sectionRow, { addLabel: '+ Partie attendue', max: 20, emptyText: 'Aucune partie imposée.' });
+
+    var save = el('button', {
+      type: 'button',
+      class: 'btn btn-primary',
+      text: '💾 Enregistrer la catégorie',
+      onclick: function () {
+        var embed = template.values();
+        var payload = {
+          label: label.value.trim(),
+          emoji: emoji.value.trim() || null,
+          buttonStyle: buttonStyle.value,
+          selectDescription: selectDescription.value.trim() || null,
+          categoryId: discordCategory.value || null,
+          channelNamePattern: namePattern.value.trim() || null,
+          maxOpen: intValue(maxOpen),
+          cooldownDays: intValue(cooldown),
+          acceptRoleId: acceptRole.value || null,
+          recruiterRoleIds: recruiters.values(),
+          notifyRoleIds: notify.values(),
+          openedTitle: embed.title,
+          openedDescription: embed.description,
+          openedColor: embed.color,
+          openedFooter: embed.footer,
+          openedImage: embed.image,
+          openedThumbnail: embed.thumbnail,
+          formEnabled: formEnabled.checked,
+          formTitle: formTitle.value.trim() || null,
+          formQuestions: questions.values(),
+          autoCheck: autoCheck.checked,
+          criteria: {
+            minChars: intValue(minChars),
+            maxChars: intValue(maxChars),
+            minMessages: intValue(minMessages),
+            minAttachments: intValue(minAttachments),
+            minAccountAgeDays: intValue(minAccountAge),
+            minMemberDays: intValue(minMemberDays),
+            requiredKeywords: textList(keywords),
+            forbiddenWords: textList(forbidden),
+            requiredRoleIds: requiredRoles.values(),
+            forbiddenRoleIds: forbiddenRoles.values(),
+            sections: sections.values(),
+          },
+        };
+        if (!payload.label) return showError('Le nom de la catégorie est obligatoire.');
+        save.disabled = true;
+        refresh(call('POST', '/categories/' + category.id + query(), payload)).finally(function () { save.disabled = false; });
+      },
+    });
+    var remove = el('button', {
+      type: 'button',
+      class: 'btn btn-danger btn-small',
+      text: 'Supprimer la catégorie',
+      onclick: function () {
+        Core.confirm('Supprimer la catégorie « ' + category.label + ' » ? Les candidatures clôturées restent dans l’historique.').then(function (ok) {
+          if (ok) refresh(call('DELETE', '/categories/' + category.id + query()));
+        });
+      },
+    });
+
+    return el(
+      'div',
+      { class: 'type-body stack' },
+      el('h4', { class: 'section-title', text: '⚙️ Général' }),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Nom (bouton du panel)' }), label),
+        el('label', { class: 'field' }, el('span', { text: 'Émoji' }), emoji),
+        el('label', { class: 'field' }, el('span', { text: 'Couleur du bouton' }), buttonStyle),
+      ),
+      el('label', { class: 'field field-grow' }, el('span', { text: 'Description (menu déroulant)' }), selectDescription),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Catégorie Discord des salons (obligatoire)' }), discordCategory),
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Nom des salons ({number} {username} {type})' }), namePattern),
+      ),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field' }, el('span', { text: 'Candidatures en cours max' }), maxOpen),
+        el('label', { class: 'field' }, el('span', { text: 'Délai avant de se représenter après un refus (jours)' }), cooldown),
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Rôle donné à l’acceptation' }), acceptRole),
+      ),
+      el('label', { class: 'field' }, el('span', { text: '🧑‍💼 Rôles recruteurs (voient les salons, changent statut et catégorie)' }), recruiters),
+      el('details', { class: 'cand-details' },
+        el('summary', { text: '🔔 Rôles notifiés à l’ouverture et à l’envoi (par défaut : les recruteurs)' }),
+        notify,
+      ),
+
+      el('h4', { class: 'section-title', text: '🧾 Modèle d’ouverture' }),
+      el('p', { class: 'muted', text: 'Embed envoyé dans le salon à l’ouverture de la candidature. Variables : ' + PLACEHOLDERS + '. Avec le contrôle automatique, les critères sont ajoutés en dessous (ou là où tu places {criteria}).' }),
+      template,
+
+      el('h4', { class: 'section-title', text: '📝 Formulaire (facultatif)' }),
+      el('p', { class: 'muted', text: 'Fenêtre Discord affichée au clic, avant la création du salon (5 questions au plus). Les réponses sont publiées dans le salon et contrôlées avec les critères.' }),
+      el('div', { class: 'field-row' }, el('label', { class: 'check' }, formEnabled, 'Activer le formulaire'), el('label', { class: 'field field-grow' }, el('span', { text: 'Titre de la fenêtre' }), formTitle)),
+      questions,
+
+      el('h4', { class: 'section-title', text: '🤖 Contrôle automatique des critères' }),
+      el('p', { class: 'muted', text: 'Quand le candidat clique sur « Terminer ma candidature », le bot vérifie ces critères. En cas de non-respect, la candidature est refusée automatiquement avec la liste des éléments non respectés et le délai avant de pouvoir se représenter. Champ vide = non contrôlé.' }),
+      el('label', { class: 'check' }, autoCheck, 'Activer le contrôle automatique pour cette catégorie'),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field' }, el('span', { text: 'Caractères min (total)' }), minChars),
+        el('label', { class: 'field' }, el('span', { text: 'Caractères max (total)' }), maxChars),
+        el('label', { class: 'field' }, el('span', { text: 'Messages min' }), minMessages),
+        el('label', { class: 'field' }, el('span', { text: 'Pièces jointes min' }), minAttachments),
+      ),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field' }, el('span', { text: 'Âge du compte Discord min (jours)' }), minAccountAge),
+        el('label', { class: 'field' }, el('span', { text: 'Ancienneté sur le serveur min (jours)' }), minMemberDays),
+      ),
+      el('div', { class: 'stack' },
+        el('strong', { text: '📑 Parties attendues (caractères par partie)' }),
+        el('p', { class: 'muted', text: 'Le candidat écrit le nom de chaque partie en début de ligne (« Présentation : … », « **Motivations** », « ## Disponibilités ») ; le texte qui suit, jusqu’à la partie suivante, est compté pour elle.' }),
+        sections,
+      ),
+      el('div', { class: 'field-row' },
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Mots ou expressions obligatoires' }), keywords),
+        el('label', { class: 'field field-grow' }, el('span', { text: 'Mots interdits' }), forbidden),
+      ),
+      el('details', { class: 'cand-details' }, el('summary', { text: '✅ Rôles requis pour postuler' }), requiredRoles),
+      el('details', { class: 'cand-details' }, el('summary', { text: '⛔ Rôles incompatibles' }), forbiddenRoles),
+
+      el('div', { class: 'filters' }, save, remove),
+    );
+  }
+
+  function renderCategories() {
+    var list = Core.clear(document.getElementById('categories-list'));
+    if (!data.categories.length) list.append(el('div', { class: 'card empty', text: 'Aucune catégorie pour l’instant.' }));
+    data.categories.forEach(function (category) {
+      var isOpen = expandedCategories.has(String(category.id));
+      var problems = [];
+      if (!category.categoryId) problems.push('catégorie Discord manquante');
+      if (!category.recruiterRoleIds.length) problems.push('aucun recruteur');
+      var head = el(
+        'div',
+        {
+          class: 'type-head',
+          onclick: function () {
+            if (isOpen) expandedCategories.delete(String(category.id));
+            else expandedCategories.add(String(category.id));
+            renderCategories();
+          },
+        },
+        el('h4', { text: (isOpen ? '▾ ' : '▸ ') + (category.emoji ? category.emoji + ' ' : '') + category.label }),
+        el(
+          'span',
+          { class: 'section-actions' },
+          category.autoCheck ? el('span', { class: 'badge-status on', text: '🤖 Contrôle auto' }) : null,
+          category.formEnabled ? el('span', { class: 'badge-status', text: '📝 Formulaire' }) : null,
+          category.cooldownDays ? el('span', { class: 'badge-status', text: '🔁 ' + category.cooldownDays + ' j' }) : null,
+          problems.length ? el('span', { class: 'badge-status warn', text: '⚠️ ' + problems.join(', ') }) : null,
+        ),
+      );
+      list.append(el('div', { class: 'card type-card' }, head, isOpen ? renderCategoryBody(category) : null));
+    });
+  }
+
+  // ── Onglet « Réglages » ────────────────────────────────────────────────────
+  function renderSettings() {
+    var log = options(data.textChannels.map(function (c) { return { value: c.id, text: '#' + c.name }; }), data.settings.logChannelId, '(aucun)');
+    var required = el('input', { type: 'checkbox' });
+    required.checked = data.settings.refusalReasonRequired;
+    var save = el('button', {
+      type: 'button',
+      class: 'btn btn-primary',
+      text: 'Enregistrer',
+      onclick: function () {
+        save.disabled = true;
+        refresh(call('POST', '/settings' + query(), { logChannelId: log.value || null, refusalReasonRequired: required.checked })).finally(function () { save.disabled = false; });
+      },
+    });
+    Core.clear(document.getElementById('settings-card')).append(
+      el(
+        'div',
+        { class: 'stack' },
+        el('label', { class: 'field' }, el('span', { text: 'Salon de journal (ouvertures, statuts, changements de catégorie)' }), log),
+        el('label', { class: 'check' }, required, 'Le refus doit être motivé (raison obligatoire pour les recruteurs)'),
+        el('div', { class: 'filters' }, save),
+      ),
+    );
+  }
+
+  function renderReplies() {
+    var keys = data.statuses.filter(function (s) { return s.recruiter || s.key === 'withdrawn'; });
+    var fields = keys.map(function (s) {
+      var entry = (data.settings.autoReplies || {})[s.key] || {};
+      var message = el('textarea', { rows: '2', maxlength: '1500', placeholder: 'Aucune réponse automatique' }, entry.message || '');
+      var dm = el('input', { type: 'checkbox' });
+      dm.checked = Boolean(entry.dm);
+      return {
+        key: s.key,
+        node: el('div', { class: 'stack cand-reply' }, el('label', { class: 'field' }, el('span', { text: s.emoji + ' ' + s.label }), message), el('label', { class: 'check' }, dm, 'Aussi en message privé au candidat')),
+        value: function () { return { message: message.value.trim(), dm: dm.checked }; },
+      };
+    });
+    var save = el('button', {
+      type: 'button',
+      class: 'btn btn-primary',
+      text: 'Enregistrer les réponses',
+      onclick: function () {
+        var replies = {};
+        fields.forEach(function (f) { replies[f.key] = f.value(); });
+        save.disabled = true;
+        refresh(call('POST', '/settings' + query(), { autoReplies: replies })).finally(function () { save.disabled = false; });
+      },
+    });
+    Core.clear(document.getElementById('replies-card')).append(
+      el(
+        'div',
+        { class: 'stack' },
+        el('p', { class: 'muted', text: 'Message posté automatiquement dans le salon quand la candidature passe à ce statut (en plus de l’annonce du statut, toujours envoyée au candidat en privé). Le refus automatique du contrôle des critères utilise la réponse « Refusée ». Variables : ' + PLACEHOLDERS + '.' }),
+        fields.map(function (f) { return f.node; }),
+        el('div', { class: 'filters' }, save),
+      ),
+    );
+  }
+
+  function renderPanel() {
+    var panel = data.settings.panel;
+    var style = options([{ value: 'buttons', text: 'Boutons (un par catégorie)' }, { value: 'select', text: 'Menu déroulant' }], panel.style);
+    var form = embedForm({ title: panel.title, description: panel.description, color: panel.color, footer: panel.footer, image: panel.image, thumbnail: panel.thumbnail }, 'Titre et texte par défaut.');
+    var save = el('button', {
+      type: 'button',
+      class: 'btn btn-primary',
+      text: '💾 Enregistrer le panel',
+      onclick: function () {
+        var payload = Object.assign({ style: style.value }, form.values());
+        save.disabled = true;
+        refresh(call('POST', '/panel' + query(), payload)).finally(function () { save.disabled = false; });
+      },
+    });
+    var channel = options(data.textChannels.map(function (c) { return { value: c.id, text: '#' + c.name }; }), panel.channelId);
+    var publish = el('button', {
+      type: 'button',
+      class: 'btn',
+      text: panel.messageId ? 'Republier ici' : 'Publier',
+      onclick: function () {
+        publish.disabled = true;
+        refresh(call('POST', '/panel/publish' + query(), { channelId: channel.value })).finally(function () { publish.disabled = false; });
+      },
+    });
+    var published = data.textChannels.find(function (c) { return c.id === panel.channelId; });
+    Core.clear(document.getElementById('panel-card')).append(
+      el(
+        'div',
+        { class: 'stack' },
+        el('div', { class: 'filters' },
+          el('label', { class: 'field' }, el('span', { text: 'Salon du panel' }), channel),
+          publish,
+          el('span', { class: 'muted', text: panel.messageId ? 'Publié dans #' + (published ? published.name : panel.channelId) : 'Pas encore publié' }),
+        ),
+        el('label', { class: 'field' }, el('span', { text: 'Présentation des catégories' }), style),
+        form,
+        el('div', { class: 'filters' }, save),
+      ),
+    );
+  }
+
+  // ── Onglets et chargement ──────────────────────────────────────────────────
+  function activateTab(name) {
+    document.querySelectorAll('.tab-btn').forEach(function (b) { b.classList.toggle('active', b.dataset.tab === name); });
+    document.querySelectorAll('.tab-panel').forEach(function (panel) { panel.hidden = panel.id !== 'tab-' + name; });
+  }
+
+  function setupTabs() {
+    document.querySelectorAll('.tab-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        activateTab(b.dataset.tab);
+        if (b.dataset.tab === 'history' && !history) reloadHistory();
+      });
+    });
+    activateTab('active');
+  }
+
+  function renderAll() {
+    renderTiles();
+    renderActive();
+    renderCategories();
+    renderSettings();
+    renderReplies();
+    renderPanel();
+    if (history) reloadHistory();
+  }
+
+  async function loadGuild() {
+    document.getElementById('content').hidden = true;
+    expandedCategories.clear();
+    historyFilters = { applicant: '', status: '', category: '', scope: 'all', page: 1 };
+    history = null;
+    if (await refresh(call('GET', '/state' + query()))) {
+      renderHistoryFilters();
+      document.getElementById('content').hidden = false;
+    }
+  }
+
+  async function start() {
+    try {
+      await Core.ready;
+      var guilds = await Core.api(API + '/guilds');
+      if (!guilds.length) {
+        document.getElementById('empty').hidden = false;
+        return;
+      }
+      var select = document.getElementById('f-guild');
+      Core.clear(select).append(...guilds.map(function (g) { return el('option', { value: g.id, text: g.name }); }));
+      var wanted = new URLSearchParams(window.location.search).get('guild');
+      guildId = guilds.some(function (g) { return g.id === wanted; }) ? wanted : guilds[0].id;
+      select.value = guildId;
+      select.addEventListener('change', function () {
+        guildId = select.value;
+        loadGuild();
+      });
+      document.getElementById('add-category').addEventListener('click', function () {
+        refresh(call('POST', '/categories' + query(), { label: 'Nouvelle catégorie' })).then(function (ok) {
+          if (ok && data.categories.length) {
+            expandedCategories.add(String(data.categories[data.categories.length - 1].id));
+            renderCategories();
+          }
+        });
+      });
+      setupTabs();
+      await loadGuild();
+    } catch (err) {
+      showError(err.message);
+    }
+  }
+
+  start();
+})();

@@ -99,6 +99,7 @@ async function handleStatusSelect(ctx, interaction, id) {
 }
 
 async function handleReasonSubmit(ctx, interaction, id, status) {
+  if (!RECRUITER_STATUSES.includes(status)) return ui.replyError(interaction, 'Statut inconnu.');
   const { candidature, category, error } = await loadCandidature(ctx, interaction, id);
   if (error) return ui.replyError(interaction, error);
   if (!isRecruiter(ctx, interaction.member, category)) return ui.replyError(interaction, ...DENIED);

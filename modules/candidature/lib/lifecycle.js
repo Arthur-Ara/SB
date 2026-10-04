@@ -9,7 +9,7 @@ const { ticketChannelName } = require('../../tickets/lib/channelName');
 const { STATUSES, isFinal, statusLabel, timeline } = require('./statuses');
 const { panelComponents, controls, categorySelect } = require('./components');
 const { answersEmbed } = require('./form');
-const { checkCriteria, hasCriteria } = require('./criteria');
+const { checkCriteria, hasCriteria, criteriaSummary } = require('./criteria');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const APPLICANT_PERMISSIONS = ['ViewChannel', 'SendMessages', 'ReadMessageHistory', 'AttachFiles', 'EmbedLinks'];
@@ -22,7 +22,7 @@ function transcriptUrl(ctx, candidature) {
   return webUrl(ctx.config, `m/candidature/transcript?candidature=${candidature.id}`);
 }
 
-/** Remplace {user} {username} {category} {id} {status} {reason} {server} {retry} dans un texte libre. */
+/** Remplace {user} {username} {category} {id} {number} {status} {reason} {server} {retry} {recruiters} {criteria} dans un texte libre. */
 function fill(text, values) {
   return String(text ?? '').replace(/\{(\w+)\}/g, (match, key) => (Object.hasOwn(values, key) ? String(values[key]) : match));
 }
@@ -131,10 +131,21 @@ async function openProblem(ctx, { category, guild, user }) {
   return null;
 }
 
-/** Message d'accueil : le « modèle » de la catégorie (embed configurable) ou, à défaut, un texte par défaut. */
+/** Critères contrôlés automatiquement, à rappeler au candidat (vide si le contrôle est désactivé). */
+function criteriaText(category) {
+  if (!Number(category?.auto_check) || !hasCriteria(category.criteria, category.form_questions)) return '';
+  return criteriaSummary(category.criteria, category.form_questions);
+}
+
+/**
+ * Message d'accueil : le « modèle » de la catégorie (embed configurable) ou, à défaut, un texte par défaut. Avec le
+ * contrôle automatique, les critères vérifiés sont rappelés dans un champ (sauf si le modèle les place lui-même via
+ * `{criteria}`).
+ */
 function welcomeEmbed(guild, category, candidature) {
-  const values = placeholdersOf(guild, category, candidature);
-  return (
+  const criteria = criteriaText(category);
+  const values = placeholdersOf(guild, category, candidature, { criteria });
+  const embed =
     buildEmbed(
       { title: category.opened_title, description: category.opened_description, color: category.opened_color, footer: category.opened_footer, image: category.opened_image, thumbnail: category.opened_thumbnail },
       values,
@@ -146,8 +157,12 @@ function welcomeEmbed(guild, category, candidature) {
         color: category.opened_color,
       },
       values,
-    )
-  );
+    );
+  const usesPlaceholder = [category.opened_title, category.opened_description].some((text) => String(text ?? '').includes('{criteria}'));
+  if (criteria && !usesPlaceholder) {
+    embed.addFields({ name: '🤖 Contrôle automatique à l’envoi', value: `${criteria.slice(0, 940)}\n-# Une candidature qui ne respecte pas ces critères est refusée automatiquement.` });
+  }
+  return embed;
 }
 
 /** Ouvre une candidature : salon privé, enregistrement, message d'accueil (modèle + réponses du formulaire). */

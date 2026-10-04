@@ -11,11 +11,15 @@
  *  - forbiddenWords : mots interdits (mot entier) ;
  *  - minAccountAgeDays / minMemberDays : ancienneté du compte Discord / sur le serveur ;
  *  - requiredRoleIds / forbiddenRoleIds : rôles que le candidat doit avoir / ne doit pas avoir ;
+ *  - sections : parties attendues dans les messages (« Présentation : … »), chacune avec un nombre de caractères
+ *    minimum / maximum et obligatoire ou non. Le candidat écrit le nom de la partie en début de ligne (titre Markdown,
+ *    gras, puce ou simple « Nom : » acceptés) ; le texte qui suit, jusqu'à la partie suivante, lui est attribué ;
  *  - par question du formulaire : minLength / maxLength (voir form.js), contrôlés aussi ici.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_LIST = 50;
+const MAX_SECTIONS = 20;
 
 function count(value, max) {
   const n = parseInt(value, 10);
@@ -29,6 +33,22 @@ function textList(value) {
 
 function idList(value) {
   return Array.isArray(value) ? [...new Set(value.map(String).filter((id) => /^\d{17,20}$/.test(id)))].slice(0, MAX_LIST) : [];
+}
+
+/** Parties attendues : [{ name, minChars, maxChars, required }] (noms uniques, sans tenir compte de la casse). */
+function sectionList(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const sections = [];
+  for (const raw of value) {
+    const name = String(raw?.name ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
+    if (!name || seen.has(fold(name))) continue;
+    seen.add(fold(name));
+    const maxChars = count(raw?.maxChars, 20000);
+    sections.push({ name, minChars: Math.min(count(raw?.minChars, 20000), maxChars || 20000), maxChars, required: raw?.required !== false });
+    if (sections.length >= MAX_SECTIONS) break;
+  }
+  return sections;
 }
 
 /** Critères saisis (panel web ou base) → objet propre, bornes appliquées. */
@@ -45,6 +65,7 @@ function normalizeCriteria(raw) {
     forbiddenWords: textList(source.forbiddenWords),
     requiredRoleIds: idList(source.requiredRoleIds),
     forbiddenRoleIds: idList(source.forbiddenRoleIds),
+    sections: sectionList(source.sections),
   };
 }
 
@@ -52,7 +73,7 @@ function normalizeCriteria(raw) {
 function hasCriteria(criteria, questions = []) {
   const c = normalizeCriteria(criteria);
   const numeric = c.minChars || c.maxChars || c.minMessages || c.minAttachments || c.minAccountAgeDays || c.minMemberDays;
-  const lists = c.requiredKeywords.length || c.forbiddenWords.length || c.requiredRoleIds.length || c.forbiddenRoleIds.length;
+  const lists = c.requiredKeywords.length || c.forbiddenWords.length || c.requiredRoleIds.length || c.forbiddenRoleIds.length || c.sections.length;
   return Boolean(numeric || lists || questions.some((q) => q.minLength || q.maxLength));
 }
 
@@ -74,6 +95,68 @@ function length(text) {
 
 function plural(n, word) {
   return `${n} ${word}${n > 1 ? 's' : ''}`;
+}
+
+/** Marques de début de ligne ignorées avant un nom de partie : titres, citations, puces, numéros, gras/italique. */
+const LINE_PREFIX = /^[\s#>*_~`|•·\-–—]*(?:\d{1,2}[.)]\s*)?[\s*_~`]*/;
+
+/**
+ * Découpe le texte du candidat en parties : une ligne qui commence par le nom d'une partie (« **Présentation** : »,
+ * « ## Motivations », « - Disponibilités - … ») ouvre cette partie ; tout ce qui suit lui revient jusqu'à la suivante.
+ * @returns {Map<string, string>} nom de la partie (tel que configuré) → texte (vide si la partie n'est qu'un titre)
+ */
+function splitSections(text, sections) {
+  const found = new Map();
+  if (!sections.length) return found;
+  // Les noms les plus longs d'abord : « Expérience staff » n'est pas pris pour « Expérience ».
+  const names = sections.map((s) => ({ name: s.name, folded: fold(s.name) })).sort((a, b) => b.folded.length - a.folded.length);
+  let current = null;
+  for (const line of String(text ?? '').split('\n')) {
+    const prefix = LINE_PREFIX.exec(line)[0];
+    const stripped = line.slice(prefix.length);
+    const folded = fold(stripped);
+    // Un titre : nom suivi de « : », d'un tiret ou de rien, ou ligne mise en titre (« ## », « ** ») — une phrase
+    // ordinaire qui commence par le même mot (« Motivation est ce qui… ») n'ouvre pas de partie.
+    const titled = /#|\*\*|__/.test(prefix);
+    const header = names.find((n) => folded.startsWith(n.folded) && (titled ? !/[a-z0-9]/.test(folded.charAt(n.folded.length)) : /^\s*[*_~`]*\s*([:：\-–—=>|]|$)/.test(folded.slice(n.folded.length))));
+    if (header) {
+      current = header.name;
+      // Texte écrit sur la même ligne que le titre (« Âge : 19 ans ») : il compte pour la partie.
+      const rest = [...stripped].slice([...header.name].length).join('').replace(/^[\s*_~`:：\-–—=>|]+/, '');
+      found.set(current, [found.get(current), rest].filter(Boolean).join('\n'));
+    } else if (current !== null) {
+      found.set(current, [found.get(current), line].filter((part) => part !== undefined && part !== '').join('\n'));
+    }
+  }
+  return found;
+}
+
+/**
+ * Rappel lisible des critères (affiché dans le message d'ouverture quand le contrôle automatique est actif), pour que
+ * le candidat sache exactement ce qui sera vérifié. Les critères de profil (ancienneté, rôles) sont inclus.
+ */
+function criteriaSummary(criteria, questions = []) {
+  const c = normalizeCriteria(criteria);
+  const lines = [];
+  if (c.sections.length) {
+    lines.push('**Parties attendues** (écris le nom de la partie en début de ligne, ex. `Présentation : …`) :');
+    for (const section of c.sections) {
+      const bounds = [section.minChars ? `${section.minChars} car. min` : null, section.maxChars ? `${section.maxChars} car. max` : null].filter(Boolean).join(', ');
+      lines.push(`• **${section.name}**${section.required ? '' : ' (facultative)'}${bounds ? ` — ${bounds}` : ''}`);
+    }
+  }
+  if (c.minChars || c.maxChars) lines.push(`• Longueur totale : ${[c.minChars ? `${c.minChars} caractères min` : null, c.maxChars ? `${c.maxChars} max` : null].filter(Boolean).join(', ')}`);
+  if (c.minMessages) lines.push(`• Au moins ${plural(c.minMessages, 'message')}`);
+  if (c.minAttachments) lines.push(`• Au moins ${c.minAttachments} pièce(s) jointe(s) (captures, CV…)`);
+  if (c.requiredKeywords.length) lines.push(`• Doit mentionner : ${c.requiredKeywords.map((w) => `« ${w} »`).join(', ')}`);
+  if (c.forbiddenWords.length) lines.push(`• Termes interdits : ${c.forbiddenWords.length}`);
+  if (c.minAccountAgeDays) lines.push(`• Compte Discord de plus de ${c.minAccountAgeDays} jour(s)`);
+  if (c.minMemberDays) lines.push(`• Membre du serveur depuis plus de ${c.minMemberDays} jour(s)`);
+  if (c.requiredRoleIds.length) lines.push(`• Rôle(s) requis : ${c.requiredRoleIds.map((id) => `<@&${id}>`).join(', ')}`);
+  for (const q of questions) {
+    if (q.minLength || q.maxLength) lines.push(`• Formulaire « ${q.label} » : ${[q.minLength ? `${q.minLength} car. min` : null, q.maxLength ? `${q.maxLength} max` : null].filter(Boolean).join(', ')}`);
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -114,6 +197,17 @@ function checkCriteria({ criteria, questions = [], answers = [], messages = [], 
   const forbidden = c.forbiddenWords.filter((word) => new RegExp(`(^|[^a-z0-9])${escapeRegex(fold(word))}($|[^a-z0-9])`).test(haystack));
   if (forbidden.length) failures.push(`Termes interdits utilisés : ${forbidden.map((w) => `« ${w} »`).join(', ')}.`);
 
+  const parts = splitSections(messages.join('\n'), c.sections);
+  for (const section of c.sections) {
+    if (!parts.has(section.name)) {
+      if (section.required) failures.push(`Partie « ${section.name} » absente (écris « ${section.name} : » en début de ligne).`);
+      continue;
+    }
+    const size = length(parts.get(section.name));
+    if (section.minChars && size < section.minChars) failures.push(`Partie « ${section.name} » trop courte : ${plural(size, 'caractère')} au lieu de ${section.minChars} minimum.`);
+    if (section.maxChars && size > section.maxChars) failures.push(`Partie « ${section.name} » trop longue : ${plural(size, 'caractère')} pour ${section.maxChars} maximum.`);
+  }
+
   if (c.minAccountAgeDays && accountCreatedAt && now - accountCreatedAt < c.minAccountAgeDays * DAY_MS) {
     failures.push(`Compte Discord trop récent : ${c.minAccountAgeDays} jour(s) d’ancienneté minimum.`);
   }
@@ -127,4 +221,4 @@ function checkCriteria({ criteria, questions = [], answers = [], messages = [], 
   return { ok: failures.length === 0, failures, stats };
 }
 
-module.exports = { normalizeCriteria, hasCriteria, checkCriteria };
+module.exports = { normalizeCriteria, hasCriteria, checkCriteria, splitSections, criteriaSummary };
